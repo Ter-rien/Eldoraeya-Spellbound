@@ -1,0 +1,513 @@
+/* Reset and base styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body, html {
+    background-color: #0f1729; /* Dark blue background */
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100%; /* Use min-height for body/html */
+    width: 100%;
+    line-height: 1.5; /* Added a base line-height */
+}
+
+/* Game container */
+#game-container {
+    max-width: 1200px;
+    margin: 20px auto; /* Added top/bottom margin */
+    padding: 20px;
+    position: relative;
+}
+
+/* Game title */
+.game-title {
+    text-align: center;
+    color: #60a5fa; /* Blue text */
+    font-size: 2.2rem;
+    margin-bottom: 30px;
+    text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+}
+
+/* Main two-column layout for stats/inventory (sidebar) and main game content */
+.game-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+}
+
+/* Sidebar: Contains stats and inventory */
+.sidebar {
+    width: 280px;
+    min-width: 280px; /* Prevents it from shrinking too much */
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Space between stats and inventory blocks */
+}
+
+/* Main content area: Contains narrative and combat */
+.main-content {
+    flex: 1; /* Takes up remaining horizontal space */
+    display: flex; /* Allows child (narrative/combat) to grow */
+    flex-direction: column;
+    min-width: 0; /* Important for flex item sizing with wide content */
+}
+
+/* Common styling for panels like stats, inventory, narrative, combat */
+#stats, #inventory, #narrative, #combat {
+    background-color: #1e293b; /* Dark panel */
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px solid #2d3748;
+    color: white;
+}
+
+/* Section titles within panels (e.g., "Character Stats", "Inventory") */
+.section-title { /* Applied to h2 in #stats and #inventory */
+    color: #60a5fa; /* Blue title */
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #2d3748;
+    padding-bottom: 8px;
+}
+
+/* Character Stats specific styling */
+#stats .stat-row { /* More specific selector */
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+#stats .stat-label { /* More specific selector */
+    font-weight: 500;
+    color: #e2e8f0; /* Light gray */
+}
+
+/* Colored values for stats */
+#stats #health { color: #f87171; } /* Red for health */
+#stats #mana { color: #60a5fa; }   /* Blue for mana */
+#stats #gold { color: #fbbf24; }   /* Yellow for gold */
+
+/* Inventory panel */
+#inventory {
+    /* Uses common panel styles */
+    /* flex-grow: 1; /* Allows inventory to take available space in sidebar if needed, but usually fixed items */
+    max-height: calc(100vh - 250px); /* Example: Adjust based on stats height and viewport */
+    overflow-y: auto;
+    overflow-x: hidden; /* Hide horizontal scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1e293b;
+}
+
+/* Custom scrollbar for webkit browsers (Chrome, Safari) */
+#inventory::-webkit-scrollbar {
+    width: 8px;
+}
+#inventory::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 4px;
+}
+#inventory::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 4px;
+    border: 2px solid #1e293b;
+}
+#inventory::-webkit-scrollbar-thumb:hover {
+    background-color: #60a5fa;
+}
+
+/* Make inventory title sticky */
+#inventory .section-title { /* More specific selector */
+    position: sticky;
+    top: -1px; /* Small offset to ensure border is visible */
+    background-color: #1e293b; /* Match panel background */
+    z-index: 10; /* Keep on top of scrolling content */
+    padding-top: 16px; /* Restore padding lost by negative top if element padding was 0 */
+    margin-top: -16px; /* Counteract default h2 margin if padding was added to element */
+}
+
+
+#inventory-list {
+    display: flex; /* Changed from grid to flex column for simpler list */
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Inventory item styling */
+.inventory-item {
+    background-color: #2d3748;
+    padding: 8px 12px; /* Adjusted padding */
+    border-radius: 6px;
+    transition: background-color 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #4b5563;
+    /* position: relative; /* Not strictly needed unless for absolute children */
+    width: 100%; /* Ensure it takes full width of its container */
+}
+
+.inventory-item:hover {
+    background-color: #374151;
+}
+
+.item-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px; /* Prevent shrinking */
+    background-color: rgba(59, 130, 246, 0.3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Specific item icon backgrounds (optional, can be simplified if icons are unique enough) */
+.item-icon.potion { background-color: rgba(239, 68, 68, 0.3); }
+.item-icon.scroll { background-color: rgba(245, 158, 11, 0.3); }
+.item-icon.weapon { background-color: rgba(107, 114, 128, 0.3); }
+
+.item-name { /* Added this class for the text part of the item */
+    font-weight: 500;
+    font-size: 0.95rem;
+    flex-grow: 1; /* Allows name to take available space */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds ... if name is too long */
+}
+
+/* Use button styling for inventory items */
+.use-button {
+    background-color: #3b82f6; /* A slightly brighter blue */
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-left: auto; /* Pushes button to the right */
+    flex-shrink: 0; /* Prevent shrinking */
+    transition: background-color 0.2s ease-in-out;
+}
+
+.use-button:hover {
+    background-color: #2563eb; /* Darker blue on hover */
+}
+
+/* Narrative and Combat sections */
+#narrative, #combat {
+    /* Uses common panel styles */
+    padding: 24px; /* Larger padding for main content areas */
+    flex-grow: 1; /* Allows these to fill the .main-content area vertically */
+    display: flex; /* To allow internal content to be managed by flex if needed */
+    flex-direction: column; /* Stack content vertically */
+}
+
+#narrative-text {
+    font-size: 1.1rem;
+    line-height: 1.7; /* Slightly increased line-height */
+    margin-bottom: 24px; /* Increased margin */
+    color: #f8fafc; /* Very light gray, almost white */
+    flex-grow: 1; /* Allows text to take available space if options are few */
+    overflow-y: auto; /* Add scroll if text is too long */
+}
+
+/* Options for player choices */
+#options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Slightly increased gap */
+    margin-top: auto; /* Pushes options to the bottom of narrative area if narrative text is short */
+}
+
+#options button,
+#begin-adventure, #male, #female, /* Style gender/city buttons similarly */
+#city-selection button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 18px; /* Increased padding */
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    font-size: 1rem;
+    font-weight: 500; /* Slightly bolder text */
+}
+
+#options button:hover,
+#begin-adventure:hover, #male:hover, #female:hover,
+#city-selection button:hover {
+    background-color: #1d4ed8; /* Darker blue on hover */
+}
+
+/* Combat section specific styling */
+#enemy-info {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2d3748;
+}
+
+#enemy-name { color: #ef4444; } /* Brighter red for enemy name */
+#enemy-health { color: #ef4444; } /* Brighter red for enemy health */
+#enemy-intent { color: #f59e0b; } /* Amber for enemy intent */
+
+
+#player-info { /* Added styling for player info in combat */
+    font-size: 1rem;
+    margin-bottom: 10px;
+    color: #9ca3af; /* Muted color */
+}
+
+#hand {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Slightly wider cards */
+    gap: 12px;
+    margin: 20px 0;
+    min-height: 100px; /* Ensure hand area has some space even if empty */
+}
+
+/* Styling for individual cards in hand */
+#hand > div { /* Target direct children of #hand that are divs */
+    background-color: #374151; /* Card background */
+    border: 1px solid #4b5563; /* Card border */
+    border-radius: 6px;
+    padding: 10px;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Puts cost at bottom if card has more content */
+}
+
+#hand > div:hover {
+    transform: translateY(-3px) scale(1.03); /* Slight lift and scale effect */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    border-color: #60a5fa;
+}
+
+
+#end-turn {
+    background-color: #dc2626; /* Red for end turn, signifies passing control */
+    color: white;
+    border: none;
+    padding: 12px 24px; /* Larger padding */
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 20px; /* Space above end turn button */
+    align-self: flex-start; /* Align to left if combat area is flex */
+}
+
+#end-turn:hover {
+    background-color: #b91c1c; /* Darker red */
+}
+
+/* Test buttons styling */
+#start-test-combat, #save-game {
+    background-color: #16a34a; /* Green for test/save */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 20px;
+    margin-right: 10px; /* Space between buttons */
+    font-weight: 500;
+}
+#start-test-combat:hover, #save-game:hover {
+    background-color: #15803d; /* Darker green */
+}
+
+
+/* Global Tooltip (used for inventory items, etc.) */
+#global-tooltip {
+    position: fixed; /* Fixed position relative to viewport */
+    z-index: 10000; /* Very high z-index to be on top */
+    background-color: #111827; /* Even darker for tooltip */
+    color: #e5e7eb; /* Light gray text */
+    padding: 10px 14px; /* Comfortable padding */
+    border-radius: 6px;
+    max-width: 280px; /* Max width for readability */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4); /* More pronounced shadow */
+    border: 1px solid #374151; /* Subtle border */
+    font-size: 0.9rem; /* Slightly larger font for tooltip */
+    line-height: 1.4;
+    pointer-events: none; /* IMPORTANT: Prevents tooltip from blocking mouse events on elements underneath */
+    display: none; /* Hidden by default */
+    opacity: 0; /* Start fully transparent */
+    transition: opacity 0.15s ease-in-out; /* Smooth fade-in/out */
+}
+
+#global-tooltip.visible { /* Class to control visibility with transition */
+    display: block; /* Needs to be block to be visible */
+    opacity: 1;
+}
+
+
+/* Debug Panel Styling (already in index.html, but good to have here for reference or future move) */
+#debug-toggle {
+    position: fixed; bottom: 10px; right: 10px;
+    background-color: #f59e0b; color: black; border: none;
+    border-radius: 5px; padding: 8px 15px; font-size: 14px;
+    font-weight: bold; cursor: pointer; z-index: 99998;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+#debug-panel {
+    position: fixed; bottom: 10px; right: 10px;
+    width: 350px; /* Slightly wider */
+    max-height: 400px; /* Max height */
+    background-color: rgba(17, 24, 39, 0.95); /* Dark, slightly transparent background */
+    border: 1px solid #f59e0b;
+    border-radius: 8px; /* More rounded */
+    padding: 15px;
+    overflow-y: auto;
+    z-index: 99999;
+    font-family: 'Consolas', 'Monaco', monospace; /* Monospace font */
+    font-size: 12px;
+    color: #a7f3d0; /* Light green text */
+    display: none; /* Hidden by default, controlled by JS */
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); /* Glow effect */
+}
+
+#debug-panel h3 {
+    margin-top: 0; color: #f59e0b;
+    border-bottom: 1px solid #f59e0b;
+    padding-bottom: 8px; margin-bottom: 10px; /* Spacing */
+    font-size: 1.1rem;
+}
+
+#debug-log {
+    margin-bottom: 15px;
+    max-height: 250px; /* Increased max height for log */
+    overflow-y: auto;
+    background-color: rgba(0,0,0,0.2); /* Slightly darker background for log area */
+    padding: 8px;
+    border-radius: 4px;
+}
+#debug-log div { /* Style individual log entries */
+    padding: 2px 0;
+    border-bottom: 1px dotted rgba(245, 158, 11, 0.2); /* Dotted separator */
+}
+#debug-log div:last-child {
+    border-bottom: none;
+}
+
+
+#debug-panel button { /* General styling for buttons inside debug panel */
+    background-color: #2563eb; color: white;
+    border: none; border-radius: 4px; /* Slightly more rounded */
+    padding: 6px 10px; /* Adjusted padding */
+    cursor: pointer; font-size: 11px;
+    transition: background-color 0.2s ease-in-out;
+}
+#debug-panel button:hover {
+    background-color: #1d4ed8;
+}
+#debug-panel #hide-debug { /* Specific style for hide button */
+    background-color: #ef4444; /* Red */
+}
+#debug-panel #hide-debug:hover {
+    background-color: #dc2626; /* Darker red */
+}
+#debug-panel div[style*="display: flex"] { /* Target the div holding the buttons */
+    display: flex;
+    gap: 8px; /* Increased gap */
+    flex-wrap: wrap;
+}
+
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .game-layout {
+        flex-direction: column; /* Stack sidebar and main content vertically */
+    }
+
+    .sidebar {
+        width: 100%; /* Sidebar takes full width */
+        min-width: auto; /* Reset min-width */
+        /* Consider max-height for stats/inventory on mobile if they get too long */
+    }
+
+    #inventory {
+        max-height: 30vh; /* Adjust inventory height on mobile */
+    }
+
+    #narrative, #combat {
+        min-height: 300px; /* Ensure they have some minimum height */
+    }
+
+    #hand { /* Adjust hand for mobile */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Smaller cards */
+    }
+}
+
+.card { 
+    border: 1px solid #60a5fa; 
+    padding: 10px; 
+    margin: 5px; 
+    background-color: #2d3748; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px; /* Ensure cards have some height */
+}
+.card.playable:hover { 
+    background-color: #3b82f6; /* Brighter blue for hover */
+    border-color: #93c5fd; 
+    transform: translateY(-2px); /* Slight lift effect */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.card.unplayable { 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+}
+.card-name { 
+    font-weight: bold; 
+    color: #e0e0e0; 
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+.card-type { 
+    font-size: 0.75rem; 
+    color: #9ca3af; /* Lighter gray */
+    margin-bottom: 6px;
+    font-style: italic;
+}
+.card-description { 
+    font-size: 0.8rem; 
+    color: #d1d5db; /* Slightly brighter gray for readability */
+    flex-grow: 1; /* Allows description to take up space */
+    line-height: 1.3;
+}
+
+/* Ensure hand can scroll if too many cards, and centers them a bit */
+#hand {
+    display: flex; /* Changed from grid to flex for better horizontal scrolling */
+    flex-wrap: nowrap; /* Prevent wrapping, force horizontal scroll */
+    gap: 12px;
+    margin: 20px 0;
+    padding-bottom: 10px; /* Space for scrollbar */
+    overflow-x: auto; /* Allow horizontal scrolling */
+    align-items: stretch; /* Make cards same height if desired, or flex-start */
+}
+#hand .card {
+    min-width: 150px; /* Give cards a minimum width */
+    max-width: 180px; /* And a maximum */
+}
