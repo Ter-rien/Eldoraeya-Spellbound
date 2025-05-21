@@ -624,21 +624,43 @@ function playCard(cardIndexInHand) {
     // Apply card effects
     if (cardData.type === "Attack") {
         if (gameState.currentEnemies.length > 0) {
-            const targetEnemy = gameState.currentEnemies[0]; // Assuming single enemy for now
-            let damageDealt = cardData.effect.damage;
-            // Apply damage considering enemy block
-            if (targetEnemy.block > 0) {
-                if (damageDealt <= targetEnemy.block) {
-                    targetEnemy.block -= damageDealt;
-                    damageDealt = 0;
-                } else {
-                    damageDealt -= targetEnemy.block;
-                    targetEnemy.block = 0;
+            const baseDamage = cardData.effect.damage;
+            if (cardData.effect.target === "all") {
+                if (window.debug && window.debug.log) window.debug.log(`Player uses AOE attack ${cardName} for ${baseDamage} base damage.`);
+                gameState.currentEnemies.forEach(targetEnemy => {
+                    let damageDealt = baseDamage;
+                    // Apply damage considering enemy block
+                    if (targetEnemy.block > 0) {
+                        if (damageDealt <= targetEnemy.block) {
+                            targetEnemy.block -= damageDealt;
+                            damageDealt = 0;
+                        } else {
+                            damageDealt -= targetEnemy.block;
+                            targetEnemy.block = 0;
+                        }
+                    }
+                    targetEnemy.health -= damageDealt;
+                    targetEnemy.health = Math.max(0, targetEnemy.health); // Prevent negative health
+                    if (window.debug && window.debug.log) window.debug.log(`  AOE hits ${targetEnemy.name}, deals ${damageDealt} damage. ${targetEnemy.name} health: ${targetEnemy.health}`);
+                });
+            } else {
+                // Single target attack
+                const targetEnemy = gameState.currentEnemies[0]; // Default to first enemy
+                let damageDealt = baseDamage;
+                // Apply damage considering enemy block
+                if (targetEnemy.block > 0) {
+                    if (damageDealt <= targetEnemy.block) {
+                        targetEnemy.block -= damageDealt;
+                        damageDealt = 0;
+                    } else {
+                        damageDealt -= targetEnemy.block;
+                        targetEnemy.block = 0;
+                    }
                 }
+                targetEnemy.health -= damageDealt;
+                targetEnemy.health = Math.max(0, targetEnemy.health); // Prevent negative health
+                if (window.debug && window.debug.log) window.debug.log(`Player attacks ${targetEnemy.name} with ${cardName} for ${baseDamage} (dealt ${damageDealt}). Enemy health: ${targetEnemy.health}`);
             }
-            targetEnemy.health -= damageDealt;
-            targetEnemy.health = Math.max(0, targetEnemy.health); // Prevent negative health
-            if (window.debug && window.debug.log) window.debug.log(`Player attacks ${targetEnemy.name} with ${cardName} for ${cardData.effect.damage} (dealt ${damageDealt}). Enemy health: ${targetEnemy.health}`);
         }
     } else if (cardData.type === "Defend") {
         gameState.block += cardData.effect.block;
