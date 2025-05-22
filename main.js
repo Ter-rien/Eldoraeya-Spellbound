@@ -1,9 +1,6 @@
 console.log("main.js loaded (v2 - refactored)");
 
-// API Key - Hardcoded for browser environment
-// IMPORTANT: This is for testing purposes only. Replace with a secure solution before any public deployment.
-const API_KEY = 'xai-HD5fnCyxeL1ZPfJIsuVSANTz2S5u5ixPF39AeuLEDVkESMq1zJqV99y0rPSSeeO9cXRhb0IobuEPKmbY';
-const SAVE_KEY = 'eldoraeya_save_v2'; // Changed save key to avoid conflicts with old saves
+const SAVE_KEY = 'eldoraeya_save';
 
 // --- DOM Element Cache ---
 const DOMElements = {
@@ -78,43 +75,45 @@ function handleError(error, context) {
     if (window.debug && window.debug.log) {
         window.debug.log(`ERROR in ${context}: ${error.message}`);
     }
-    // Optionally display a user-friendly message
-    // DOMElements.narrativeText.innerText = `A flicker in the timeline! (Error: ${context})`;
 }
 
+// --- Grok API Call (updated for secure backend proxy) ---
+// IMPORTANT: The API key is no longer stored in the frontend. This function calls your Vercel backend proxy (e.g., /api/proxy),
+// which securely adds the real API key and talks to the Grok API. No secrets are exposed to the browser.
+//
+// Usage: await callGrokAPI(prompt);
+// Returns: Grok's narrative and options as a string.
+//
 async function callGrokAPI(prompt) {
-    if (!API_KEY || API_KEY === 'xai-HD5fnCyxeL1ZPfJIsuVSANTz2S5u5ixPF39AeuLEDVkESMq1zJqV99y0rPSSeeO9cXRhb0IobuEPKmbY') {
-        const placeholder = "The Chronomancer's voice is but a whisper without the arcane link (API Key Missing/Placeholder). He mumbles: 'You chose to explore the city. You find a bustling market. Options: 1. Browse Stalls 2. Ask for Rumors 3. Find a Tavern 4. Leave Market'";
-        console.warn("Using placeholder Grok response. API Key is missing or the generic placeholder string.");
-         if (window.debug && window.debug.log) window.debug.log("Using placeholder Grok response because API_KEY is missing or is the exact placeholder string.");
-        return placeholder; // Provide a default/test response
-    }
+    // For testing/development, if running locally without a backend, you can uncomment the placeholder below:
+    // return "The Chronomancer's voice is but a whisper without the arcane link (API Proxy Missing). He muses: 'You chose to explore the city. You find a bustling market. Options: 1. Browse Stalls 2. Ask for Rumors 3. Find a Tavern 4. Leave Market'";
     try {
-        const response = await fetch('https://api.x.ai/v1/chat/completions', {
+        // Send the prompt and system instructions to your backend proxy (which talks to Grok 3 Mini)
+        const response = await fetch('/api/proxy', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'grok-2-latest', // Or your preferred model
                 messages: [
-                    { role: 'system', content: `You are Grok, the witty and slightly melancholic Chronomancer DM for Eldoraeya: Spellbound. Narrate events concisely but evocatively. Limit responses to narrative and options. Provide exactly 4 numbered options like "Options:\n1. Option One\n2. Option Two\n3. Option Three\n4. Option Four". Current city: ${gameState.currentCity}. Player health: ${gameState.health}/${gameState.maxHealth}. Gold: ${gameState.gold}.` },
+                    {
+                        role: 'system',
+                        content: `You are Grok, the witty and slightly melancholic Chronomancer DM for Eldoraeya: Spellbound. Narrate events concisely but evocatively. Limit responses to narrative and options. Provide exactly 4 numbered options like "Options:\\n1. Option One\\n2. Option Two\\n3. Option Three\\n4. Option Four". Current city: ${gameState.currentCity}. Player health: ${gameState.health}/${gameState.maxHealth}. Gold: ${gameState.gold}.`
+                    },
                     { role: "user", content: prompt }
                 ],
-                max_tokens: 500, // Adjusted from 600 as per README
+                model: 'grok-3-mini', // Use the Grok 3 Mini model
+                max_tokens: 500,
                 temperature: 0.7
             })
         });
         if (!response.ok) {
             const errorBody = await response.text();
-            throw new Error(`API request failed: ${response.status} - ${errorBody}`);
+            throw new Error(`Proxy API request failed: ${response.status} - ${errorBody}`);
         }
         const data = await response.json();
         if (data.choices && data.choices.length > 0 && data.choices[0].message) {
             return data.choices[0].message.content;
         } else {
-            throw new Error("Invalid API response structure.");
+            throw new Error("Invalid proxy API response structure.");
         }
     } catch (error) {
         handleError(error, 'callGrokAPI');
