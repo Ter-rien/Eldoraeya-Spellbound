@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eldoraeya: Spellbound</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA/0lEQVR4AezBgQAAAACAoP2pF6kCAAAAAGB27QG6tTYBwzAQRPe2bdu2bdu2bdu2bdu2bdu2ndo2O5tgchQlhfnMAX7wGdWAkN+z8q/kB4lYhLMYh7pI+KPiH1iLxwiXr614ggUoj4Rf3XwIduEVsqwVz7EF3RDBV80PxGG8RY5PxUtshvGV8qNwCh+R61fxBfvQ8HPxUbiEL8j3q/iKo6j9sfxYPEAOCgIqvmEBEt6XH487yEJhUMU3TEL0u/IzcQMZKAqp+I4xL+Vn4DoyURxW8QNdnuRn4zYyUBJR8RM1/8vPxw2koywKpf/k5+IqUlEeFYTQ7K38NJxBMmqjHgAAAAAAAAAA+Au9rWR1j8jJjwAAAABJRU5ErkJggg==">
 </head>
 <body>
@@ -43,19 +43,19 @@
                 <!-- Narrative Section -->
                 <div id="narrative">
                     <button id="begin-adventure">Begin Adventure</button>
-                    <div id="gender-selection" style="display:none;">
+                    <div id="gender-selection" class="hidden">
                         <button id="male">Male</button>
                         <button id="female">Female</button>
                     </div>
-                    <div id="city-selection" style="display:none;">
+                    <div id="city-selection" class="hidden">
                         <!-- City buttons will be dynamically added here -->
                     </div>
-                    <p id="narrative-text" style="display:none;">Welcome to Eldoraeya!</p>
-                    <div id="options" style="display:none;"></div>
+                    <p id="narrative-text" class="hidden">Welcome to Eldoraeya!</p>
+                    <div id="options" class="hidden"></div>
                 </div>
                 
                 <!-- Combat Section - Hidden by default -->
-                <div id="combat" style="display:none;">
+                <div id="combat" class="hidden">
                     <div id="enemy-info">
                         Enemy: <span id="enemy-name"></span> | 
                         Health: <span id="enemy-health"></span>
@@ -69,150 +69,33 @@
         </div>
         
         <!-- Test button for combat -->
-        <button id="start-test-combat" style="background-color: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin-top: 20px;">Start Test Combat</button>
-        <button id="save-game" style="background-color: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin-top: 20px;">Save Game</button>
+        <button id="start-test-combat">Start Test Combat</button>
+        <button id="save-game">Save Game</button>
         
         <!-- Tooltip container that will be positioned outside any constraints -->
-        <div id="global-tooltip" class="tooltip" style="display:none;"></div>
+        <div id="global-tooltip" class="tooltip hidden"></div>
     </div>
 
     <!-- Debug toggle button - with improved visibility -->
-    <button id="debug-toggle" style="position: fixed; bottom: 10px; right: 10px; background-color: #f59e0b; color: black; border: none; border-radius: 5px; padding: 8px 15px; font-size: 14px; font-weight: bold; cursor: pointer; z-index: 99998; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">DEBUG</button>
+    <button id="debug-toggle">DEBUG</button>
 
     <!-- Debug Panel - Hidden by default -->
-    <div id="debug-panel" style="position: fixed; bottom: 10px; right: 10px; width: 300px; height: 300px; background-color: rgba(0, 0, 0, 0.9); border: 2px solid #f59e0b; border-radius: 5px; padding: 10px; overflow-y: auto; z-index: 99999; font-family: monospace; font-size: 12px; color: lime; display: none;">
-        <h3 style="margin-top: 0; color: #f59e0b; border-bottom: 1px solid #f59e0b; padding-bottom: 5px;">Debug Panel</h3>
-        <div id="debug-log" style="margin-bottom: 10px; max-height: 200px; overflow-y: auto;"></div>
-        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-            <button style="background-color: #2563eb; color: white; border: none; border-radius: 3px; padding: 5px 8px; cursor: pointer; font-size: 11px;" id="check-inventory">Check Inventory</button>
-            <button style="background-color: #2563eb; color: white; border: none; border-radius: 3px; padding: 5px 8px; cursor: pointer; font-size: 11px;" id="add-test-item">Add Test Item</button>
-            <button style="background-color: #2563eb; color: white; border: none; border-radius: 3px; padding: 5px 8px; cursor: pointer; font-size: 11px;" id="force-tooltip">Force Tooltip</button>
-            <button style="background-color: #2563eb; color: white; border: none; border-radius: 3px; padding: 5px 8px; cursor: pointer; font-size: 11px;" id="clear-log">Clear Log</button>
-            <button style="background-color: #dc2626; color: white; border: none; border-radius: 3px; padding: 5px 8px; cursor: pointer; font-size: 11px;" id="hide-debug">Hide Panel</button>
+    <div id="debug-panel" class="hidden">
+        <h3>Debug Panel</h3>
+        <div id="debug-log"></div>
+        <div class="debug-buttons-container">
+            <button id="check-inventory">Check Inventory</button>
+            <button id="add-test-item">Add Test Item</button>
+            <button id="force-tooltip">Force Tooltip</button>
+            <button id="clear-log">Clear Log</button>
+            <button id="hide-debug">Hide Panel</button>
         </div>
     </div>
 
     <!-- Load scripts in normal order -->
     <script src="js/data.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/debug.js"></script>
     
-    <!-- Debug panel functionality - Improved implementation -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log("Debug functionality initialized");
-            
-            // Debug toggle button functionality
-            const debugToggle = document.getElementById('debug-toggle');
-            const debugPanel = document.getElementById('debug-panel');
-            
-            if (debugToggle && debugPanel) {
-                // Show debug panel when toggle button is clicked
-                debugToggle.onclick = function() {
-                    debugPanel.style.display = 'block';
-                    debugToggle.style.display = 'none';
-                    console.log("Debug panel opened");
-                };
-                
-                // Hide debug panel button
-                const hideDebug = document.getElementById('hide-debug');
-                if (hideDebug) {
-                    hideDebug.onclick = function() {
-                        debugPanel.style.display = 'none';
-                        debugToggle.style.display = 'block';
-                        console.log("Debug panel closed");
-                    };
-                }
-            } else {
-                console.error("Debug toggle or panel not found");
-            }
-            
-            // Debug logging function
-            window.debug = {
-                log: function(message) {
-                    console.log(message);
-                    const debugLog = document.getElementById('debug-log');
-                    if (debugLog) {
-                        const time = new Date().toLocaleTimeString();
-                        const entry = document.createElement('div');
-                        entry.innerHTML = `<span style="color:#f59e0b">[${time}]</span> ${message}`;
-                        debugLog.appendChild(entry);
-                        debugLog.scrollTop = debugLog.scrollHeight;
-                    }
-                },
-                clear: function() {
-                    const debugLog = document.getElementById('debug-log');
-                    if (debugLog) {
-                        debugLog.innerHTML = '';
-                    }
-                }
-            };
-            
-            // Debug buttons functionality
-            document.getElementById('check-inventory')?.addEventListener('click', function() {
-                const items = document.querySelectorAll('.inventory-item');
-                window.debug.log(`Found ${items.length} inventory items`);
-                
-                items.forEach((item, index) => {
-                    window.debug.log(`Item ${index + 1}: ID=${item.id}, Description=${item.getAttribute('data-description')}`);
-                });
-            });
-            
-            document.getElementById('force-tooltip')?.addEventListener('click', function() {
-                const items = document.querySelectorAll('.inventory-item');
-                if (items.length > 0) {
-                    const firstItem = items[0];
-                    const desc = firstItem.getAttribute('data-description');
-                    
-                    window.debug.log(`Forcing tooltip for first item: ${firstItem.id}`);
-                    if (desc) {
-                        window.debug.log(`Description: ${desc}`);
-                        
-                        // Get tooltip element
-                        let tooltip = document.getElementById('item-tooltip');
-                        if (!tooltip) {
-                            tooltip = document.createElement('div');
-                            tooltip.id = 'item-tooltip';
-                            tooltip.style.position = 'fixed';
-                            tooltip.style.zIndex = '10000';
-                            tooltip.style.backgroundColor = '#1e293b';
-                            tooltip.style.color = 'white';
-                            tooltip.style.padding = '10px';
-                            tooltip.style.borderRadius = '6px';
-                            tooltip.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
-                            tooltip.style.maxWidth = '250px';
-                            tooltip.style.border = '1px solid #f59e0b';
-                            document.body.appendChild(tooltip);
-                        }
-                        
-                        // Update tooltip
-                        tooltip.textContent = desc;
-                        tooltip.style.display = 'block';
-                        
-                        // Position tooltip
-                        const rect = firstItem.getBoundingClientRect();
-                        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
-                        tooltip.style.left = (rect.left + (rect.width / 2)) + 'px';
-                        tooltip.style.transform = 'translateX(-50%)';
-                        
-                        setTimeout(() => {
-                            tooltip.style.display = 'none';
-                            window.debug.log('Forced tooltip hidden');
-                        }, 3000);
-                    } else {
-                        window.debug.log('ERROR: No description found on item');
-                    }
-                } else {
-                    window.debug.log('ERROR: No inventory items found');
-                }
-            });
-            
-            document.getElementById('clear-log')?.addEventListener('click', function() {
-                window.debug.clear();
-                window.debug.log('Log cleared');
-            });
-            
-            window.debug.log('Debug panel ready');
-        });
-    </script>
 </body>
 </html>
