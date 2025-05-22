@@ -8,8 +8,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (debugToggle && debugPanel) {
         // Show debug panel when toggle button is clicked
         debugToggle.onclick = function() {
-            debugPanel.classList.remove('hidden'); // Use classList to control visibility
-            debugToggle.classList.add('hidden');   // Use classList to control visibility
+            // debugPanel.style.display = 'block'; // Replaced by class manipulation
+            debugPanel.classList.remove('hidden');
+            // debugToggle.style.display = 'none'; // Replaced by class manipulation
+            debugToggle.classList.add('hidden');
             console.log("Debug panel opened");
         };
         
@@ -17,8 +19,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const hideDebug = document.getElementById('hide-debug');
         if (hideDebug) {
             hideDebug.onclick = function() {
-                debugPanel.classList.add('hidden');   // Use classList to control visibility
-                debugToggle.classList.remove('hidden'); // Use classList to control visibility
+                // debugPanel.style.display = 'none'; // Replaced by class manipulation
+                debugPanel.classList.add('hidden');
+                // debugToggle.style.display = 'block'; // Replaced by class manipulation
+                debugToggle.classList.remove('hidden');
                 console.log("Debug panel closed");
             };
         }
@@ -34,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (debugLog) {
                 const time = new Date().toLocaleTimeString();
                 const entry = document.createElement('div');
-                // Inline style for span is kept as it's dynamic content with specific color.
+                // Inline style for span is kept as it's dynamically adding content with specific color.
                 entry.innerHTML = `<span style="color:#f59e0b">[${time}]</span> ${message}`;
                 debugLog.appendChild(entry);
                 debugLog.scrollTop = debugLog.scrollHeight;
@@ -84,23 +88,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     tooltip.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
                     tooltip.style.maxWidth = '250px';
                     tooltip.style.border = '1px solid #f59e0b';
-                    // A new tooltip should also start hidden if it's meant to use the class
-                    tooltip.classList.add('hidden'); 
                     document.body.appendChild(tooltip);
                 }
                 
                 // Update tooltip
                 tooltip.textContent = desc;
-                tooltip.classList.remove('hidden'); // Use classList to control visibility
+                // tooltip.style.display = 'block'; // Replaced by class manipulation
+                tooltip.classList.remove('hidden'); // Assuming such a tooltip would also use .hidden
                 
-                // Position tooltip (positioning styles remain inline as they are dynamic)
+                // Position tooltip
                 const rect = firstItem.getBoundingClientRect();
-                tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px'; 
+                tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
                 tooltip.style.left = (rect.left + (rect.width / 2)) + 'px';
                 tooltip.style.transform = 'translateX(-50%)';
                 
                 setTimeout(() => {
-                    tooltip.classList.add('hidden'); // Use classList to control visibility
+                    // tooltip.style.display = 'none'; // Replaced by class manipulation
+                    tooltip.classList.add('hidden'); // Assuming such a tooltip would also use .hidden
                     window.debug.log('Forced tooltip hidden');
                 }, 3000);
             } else {
