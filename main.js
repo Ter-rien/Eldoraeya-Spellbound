@@ -85,10 +85,7 @@ function handleError(error, context) {
 // Returns: Grok's narrative and options as a string.
 //
 async function callGrokAPI(prompt) {
-    // For testing/development, if running locally without a backend, you can uncomment the placeholder below:
-    // return "The Chronomancer's voice is but a whisper without the arcane link (API Proxy Missing). He muses: 'You chose to explore the city. You find a bustling market. Options: 1. Browse Stalls 2. Ask for Rumors 3. Find a Tavern 4. Leave Market'";
     try {
-        // Send the prompt and system instructions to your backend proxy (which talks to Grok 3 Mini)
         const response = await fetch('/api/proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -117,7 +114,7 @@ async function callGrokAPI(prompt) {
         }
     } catch (error) {
         handleError(error, 'callGrokAPI');
-        return "The Chronomancer's voice falters—something’s amiss in the weave of time. (API Error). He recalls a faint memory: 'You approach a menacing bandit. Options: 1. Attack with Fireball 2. Defend with Staff 3. Try to Intimidate 4. Flee'";
+        return "The Chronomancer's voice falters—something’s amiss in the weave of time. (API Error)";
     }
 }
 
@@ -935,11 +932,3 @@ window.EldoraeyaDebug = {
     callGrok: callGrokAPI,
     updateNarrative: updateNarrativeDisplay
 };
-
-// Ensure styles for cards are added to style.css
-// .card { border: 1px solid #60a5fa; padding: 10px; margin: 5px; background-color: #2d3748; border-radius: 6px; cursor: pointer; }
-// .card.playable:hover { background-color: #374151; border-color: #93c5fd; }
-// .card.unplayable { opacity: 0.6; cursor: not-allowed; }
-// .card-name { font-weight: bold; color: #e0e0e0; }
-// .card-type { font-size: 0.8em; color: #a0a0a0; margin-bottom: 5px; }
-// .card-description { font-size: 0.9em; color: #c0c0c0; }
