@@ -475,12 +475,12 @@ function displayCitySelection() {
         button.onclick = () => {
             gameState.startingCity = cityKey;
             gameState.currentCity = cityKey;
-            DOMElements.citySelectionDiv.style.display = 'none';
+            DOMElements.citySelectionDiv.classList.add('hidden');
             loadStoryPiece("start"); // Start the game narrative
         };
         DOMElements.citySelectionDiv.appendChild(button);
     });
-    DOMElements.citySelectionDiv.style.display = 'block';
+    DOMElements.citySelectionDiv.classList.remove('hidden');
 }
 
 // --- Combat System ---
@@ -885,8 +885,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded. Setting up event listeners.");
 
     DOMElements.beginAdventureButton?.addEventListener('click', () => {
-        DOMElements.beginAdventureButton.style.display = 'none';
-        DOMElements.genderSelectionDiv.style.display = 'block';
+        DOMElements.beginAdventureButton.classList.add('hidden');
+        DOMElements.genderSelectionDiv.classList.remove('hidden');
     });
 
     document.getElementById('male')?.addEventListener('click', () => {
