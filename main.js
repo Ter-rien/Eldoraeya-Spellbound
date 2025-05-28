@@ -114,6 +114,7 @@ async function callGrokAPI(prompt) {
         }
     } catch (error) {
         handleError(error, 'callGrokAPI');
+        updateNarrativeDisplay("The Chronomancer's connection is unstable, and the path ahead is momentarily obscured. Please check your connection or try again after a brief pause.", []);
         return "The Chronomancer's voice falters—something’s amiss in the weave of time. (API Error)";
     }
 }
@@ -207,10 +208,18 @@ function updateUI() { // Updates static stats, inventory
 }
 
 function updateNarrativeDisplay(text, options = []) {
+    if (!text || text.trim() === "") {
+        console.warn('updateNarrativeDisplay: Received empty narrative text. Displaying fallback.');
+        text = "The story is currently unfolding... Please wait.";
+    }
+
     if (DOMElements.narrativeText) {
         DOMElements.narrativeText.innerText = text;
-        DOMElements.narrativeText.style.display = 'block';
+        DOMElements.narrativeText.style.display = 'block'; 
+    } else {
+        console.warn('updateNarrativeDisplay: DOMElements.narrativeText is null. Cannot display narrative.');
     }
+
     if (DOMElements.optionsContainer) {
         DOMElements.optionsContainer.innerHTML = ''; // Clear old options
         if (options && options.length > 0) {
@@ -225,6 +234,8 @@ function updateNarrativeDisplay(text, options = []) {
         } else {
             DOMElements.optionsContainer.style.display = 'none';
         }
+    } else {
+        console.warn('updateNarrativeDisplay: DOMElements.optionsContainer is null. Cannot display options.');
     }
 }
 
@@ -411,6 +422,7 @@ async function loadStoryPiece(pieceId) {
 }
 
 function parseGrokResponse(fullNarration) {
+    console.log('Raw Grok response:', fullNarration);
     let narrativePart = fullNarration;
     let optionsArray = [];
     const optionsMarker = "Options:";
@@ -428,6 +440,7 @@ function parseGrokResponse(fullNarration) {
         optionsArray = ["Continue...", "Investigate further...", "Check surroundings...", "Prepare..."];
         if (window.debug && window.debug.log) window.debug.log("Grok response did not contain 'Options:' marker. Using fallback options.");
     }
+    console.log('Parsed narrative:', narrativePart, 'Parsed options:', optionsArray);
     return [narrativePart, optionsArray];
 }
 
