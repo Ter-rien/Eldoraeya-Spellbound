@@ -182,12 +182,27 @@ function resetGame() {
     gameState = { ...defaultGameState, inventory: [], deck: [...defaultGameState.deck] }; // Ensure fresh arrays
     // Instead of location.reload(), reset UI and state directly for smoother transition
     DOMElements.beginAdventureButton.style.display = 'block';
+    DOMElements.beginAdventureButton.classList.remove('hidden'); // Make sure it's not hidden
+
     DOMElements.genderSelectionDiv.style.display = 'none';
+    DOMElements.genderSelectionDiv.classList.add('hidden');
+
     DOMElements.citySelectionDiv.style.display = 'none';
+    DOMElements.citySelectionDiv.classList.add('hidden');
+
+    DOMElements.narrativeText.innerText = ''; // Clear content
     DOMElements.narrativeText.style.display = 'none';
+    DOMElements.narrativeText.classList.add('hidden');
+
+    DOMElements.optionsContainer.innerHTML = ''; // Clear content
     DOMElements.optionsContainer.style.display = 'none';
+    DOMElements.optionsContainer.classList.add('hidden');
+    
     DOMElements.combatScreen.style.display = 'none';
-    DOMElements.narrativeScreen.style.display = 'block'; // Show narrative screen for begin button
+    DOMElements.combatScreen.classList.add('hidden');
+
+    DOMElements.narrativeScreen.style.display = 'block'; 
+    DOMElements.narrativeScreen.classList.remove('hidden'); // Make sure it's not hidden
     updateUI();
     saveGame(); // Save the fresh state
     if (window.debug && window.debug.log) window.debug.log("Game reset to default state.");
