@@ -182,12 +182,27 @@ function resetGame() {
     gameState = { ...defaultGameState, inventory: [], deck: [...defaultGameState.deck] }; // Ensure fresh arrays
     // Instead of location.reload(), reset UI and state directly for smoother transition
     DOMElements.beginAdventureButton.style.display = 'block';
+    DOMElements.beginAdventureButton.classList.remove('hidden'); // Make sure it's not hidden
+
     DOMElements.genderSelectionDiv.style.display = 'none';
+    DOMElements.genderSelectionDiv.classList.add('hidden');
+
     DOMElements.citySelectionDiv.style.display = 'none';
+    DOMElements.citySelectionDiv.classList.add('hidden');
+
+    DOMElements.narrativeText.innerText = ''; // Clear content
     DOMElements.narrativeText.style.display = 'none';
+    DOMElements.narrativeText.classList.add('hidden');
+
+    DOMElements.optionsContainer.innerHTML = ''; // Clear content
     DOMElements.optionsContainer.style.display = 'none';
+    DOMElements.optionsContainer.classList.add('hidden');
+    
     DOMElements.combatScreen.style.display = 'none';
-    DOMElements.narrativeScreen.style.display = 'block'; // Show narrative screen for begin button
+    DOMElements.combatScreen.classList.add('hidden');
+
+    DOMElements.narrativeScreen.style.display = 'block'; 
+    DOMElements.narrativeScreen.classList.remove('hidden'); // Make sure it's not hidden
     updateUI();
     saveGame(); // Save the fresh state
     if (window.debug && window.debug.log) window.debug.log("Game reset to default state.");
@@ -214,6 +229,7 @@ function updateNarrativeDisplay(text, options = []) {
     }
 
     if (DOMElements.narrativeText) {
+        DOMElements.narrativeText.classList.remove('hidden');
         DOMElements.narrativeText.innerText = text;
         DOMElements.narrativeText.style.display = 'block'; 
     } else {
@@ -223,6 +239,7 @@ function updateNarrativeDisplay(text, options = []) {
     if (DOMElements.optionsContainer) {
         DOMElements.optionsContainer.innerHTML = ''; // Clear old options
         if (options && options.length > 0) {
+            DOMElements.optionsContainer.classList.remove('hidden');
             options.forEach((optText, index) => {
                 const button = document.createElement('button');
                 button.innerText = optText;
@@ -422,7 +439,7 @@ async function loadStoryPiece(pieceId) {
 }
 
 function parseGrokResponse(fullNarration) {
-    console.log('Raw Grok response:', fullNarration);
+    console.log('Raw Grok response received:', fullNarration); // Requirement 1: Log raw response
     let narrativePart = fullNarration;
     let optionsArray = [];
     const optionsMarker = "Options:";
@@ -432,8 +449,14 @@ function parseGrokResponse(fullNarration) {
         narrativePart = fullNarration.substring(0, optionsIndex).trim();
         const optionsStr = fullNarration.substring(optionsIndex + optionsMarker.length).trim();
         optionsArray = optionsStr.split('\n')
-            .map(opt => opt.replace(/^\d+\.\s*/, '').trim()) // Remove numbering (e.g., "1. ")
+            .map(opt => opt.replace(/^\d+[\.\)]\s*/, '').trim()) // Requirement 2: Flexible numbering
             .filter(opt => opt.length > 0); // Remove empty lines
+
+        // Requirement 3: Fallback for empty options after marker
+        if (optionsArray.length === 0) {
+            console.warn("Grok response contained 'Options:' marker, but no valid options were extracted. Using fallback options.");
+            optionsArray = ["Continue...", "Investigate further...", "Check surroundings...", "Prepare..."];
+        }
     } else {
         // If Grok doesn't provide options in the expected format, create fallbacks
         narrativePart = fullNarration; // Use the whole response as narrative
