@@ -204,7 +204,6 @@ function resetGame() {
     DOMElements.narrativeScreen.style.display = 'block'; 
     DOMElements.narrativeScreen.classList.remove('hidden'); // Make sure it's not hidden
     updateUI();
-    saveGame(); // Save the fresh state
     if (window.debug && window.debug.log) window.debug.log("Game reset to default state.");
 }
 
@@ -285,7 +284,6 @@ function addToInventory(itemKey, quantity = 1) {
     
     if (window.debug && window.debug.log) window.debug.log(`Added ${quantity}x ${itemData.name} to inventory.`);
     updateInventoryUI();
-    // saveGame(); // Decide if saving on every item add is too frequent
     return true;
 }
 
@@ -312,7 +310,6 @@ function useItem(itemInstanceId) {
         gameState.inventory.splice(itemIndex, 1); // Remove item from inventory
         updateUI(); // Updates health display and re-renders inventory
         if (DOMElements.globalTooltip) DOMElements.globalTooltip.style.display = 'none'; // Hide tooltip
-        saveGame();
         return true;
     }
     return false;
@@ -434,8 +431,6 @@ async function loadStoryPiece(pieceId) {
     optionButtons.forEach((button, index) => {
         button.onclick = () => handleStoryChoice(piece, index, optionsPart[index]); // Pass chosen text for context
     });
-    
-    saveGame();
 }
 
 function parseGrokResponse(fullNarration) {
@@ -551,7 +546,6 @@ async function startCombat(enemyKey) {
         updateEnemyIntent();
         displayHandUI();
         updateUI(); // Update player stats display (mana, block)
-        saveGame();
         if (window.debug && window.debug.log) window.debug.log(`Combat started with ${enemyInstance.name}`);
     }, 3000); // 3 second delay for pre-fight text, consider a "continue" button
 }
@@ -773,7 +767,6 @@ async function handleEndTurn() {
         drawCards(5); // Draw new hand
         updateUI(); // Update player stats
         displayHandUI(); // Update hand display
-        saveGame();
          if (window.debug && window.debug.log) window.debug.log("Player's new turn started.");
     }
 }
@@ -812,7 +805,6 @@ async function checkCombatEnd() {
         
         switchToNarrativeView();
         gameState.currentPieceType = 'Defeat'; // Special state
-        saveGame(); // Save the defeat state
         return; // Early exit, special handling for defeat options
     }
 
@@ -831,7 +823,6 @@ async function checkCombatEnd() {
                 loadStoryPiece(gameState.currentStoryPieceId + "_victory" || "start"); // Placeholder
             };
         });
-        saveGame();
     }
 }
 
