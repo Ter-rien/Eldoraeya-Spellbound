@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eldoraeya: Spellbound</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA/0lEQVR4AezBgQAAAACAoP2pF6kCAAAAAGB27QG6tTYBwzAQRPe2bdu2bdu2bdu2bdu2bdu2ndo2O5tgchQlhfnMAX7wGdWAkN+z8q/kB4lYhLMYh7pI+KPiH1iLxwiXr614ggUoj4Rf3XwIduEVsqwVz7EF3RDBV80PxGG8RY5PxUtshvGV8qNwCh+R61fxBfvQ8HPxUbiEL8j3q/iKo6j9sfxYPEAOCgIqvmEBEt6XH487yEJhUMU3TEL0u/IzcQMZKAqp+I4xL+Vn4DoyURxW8QNdnuRn4zYyUBJR8RM1/8vPxw2koywKpf/k5+IqUlEeFYTQ7K38NJxBMmqjHgAAAAAAAAAA+Au9rWR1j8jJjwAAAABJRU5ErkJggg==">
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA/0lEQVR4AezBgQAAAACAoP2pF6kCAAAAAGB27QG6tTYBwzAQRPe2bdu2bdu2bdu2bdu2bdu2bndo2O5tgchQlhfnMAX7wGdWAkN+z8q/kB4lYhLMYh7pI+KPiH1iLxwiXr614ggUoj4Rf3XwIduEVsqwVz7EF3RDBV80PxGG8RY5PxUtshvGV8qNwCh+R61fxBfvQ8HPxUbiEL8j3q/iKo6j9sfxYPEAOCgIqvmEBEt6XH487yEJhUMU3TEL0u/IzcQMZKAqp+I4xL+Vn4DoyURxW8QNdnuRn4zYyUBJR8RM1/8vPxw2koywKpf/k5+IqUlEeFYTQ7K38NJxBMmqjHgAAAAAAAAAA+Au9rWR1j8jJjwAAAABJRU5ErkJggg==">
 </head>
 <body>
     <div id="game-container">
         <h1 class="game-title">Eldoraeya: Spellbound</h1>
-        
+
         <div class="game-layout">
             <!-- Left column: Stats & Inventory -->
             <div class="sidebar">
@@ -30,19 +30,20 @@
                         <span id="gold">10</span>
                     </div>
                 </div>
-                
+
                 <!-- Inventory -->
                 <div id="inventory">
                     <h2 class="section-title">Inventory</h2>
                     <div id="inventory-list"></div>
                 </div>
             </div>
-            
+
             <!-- Right column: Game content -->
             <div class="main-content">
                 <!-- Narrative Section -->
                 <div id="narrative">
                     <button id="begin-adventure">Begin Adventure</button>
+                    <button id="load-game-button">Load Game</button>
                     <div id="gender-selection" class="hidden">
                         <button id="male">Male</button>
                         <button id="female">Female</button>
@@ -53,11 +54,29 @@
                     <p id="narrative-text" class="hidden">Welcome to Eldoraeya!</p>
                     <div id="options" class="hidden"></div>
                 </div>
-                
+
+                <!-- Load Menu Section - Hidden by default -->
+                <div id="load-menu" class="hidden">
+                    <h2 class="section-title">Load Game</h2>
+                    <div id="save-slots-list">
+                        <!-- Save slots will be dynamically populated here by main.js -->
+                    </div>
+                    <button id="back-to-main-menu-button">Back to Main Menu</button>
+                </div>
+
+                <!-- Save Slot Menu Section - Hidden by default -->
+                <div id="save-slot-menu" class="hidden">
+                    <h2 class="section-title">Save Game to Slot</h2>
+                    <div id="save-slots-options-list">
+                        <!-- Save slots options will be dynamically populated here by main.js -->
+                    </div>
+                    <button id="cancel-save-button">Cancel</button>
+                </div>
+
                 <!-- Combat Section - Hidden by default -->
                 <div id="combat" class="hidden">
                     <div id="enemy-info">
-                        Enemy: <span id="enemy-name"></span> | 
+                        Enemy: <span id="enemy-name"></span> |
                         Health: <span id="enemy-health"></span>
                         Intent: <span id="enemy-intent"></span>
                     </div>
@@ -67,11 +86,11 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Test button for combat -->
         <button id="start-test-combat">Start Test Combat</button>
-        <button id="save-game">Save Game</button>
-        
+        <button id="save-game">Save Game</button> <!-- This button will trigger the save slot menu -->
+
         <!-- Tooltip container that will be positioned outside any constraints -->
         <div id="global-tooltip" class="tooltip hidden"></div>
     </div>
@@ -96,6 +115,6 @@
     <script src="data.js"></script>
     <script src="main.js"></script>
     <script src="debug.js"></script>
-    
+
 </body>
 </html>

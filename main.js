@@ -1,6 +1,6 @@
 console.log("main.js loaded (v2 - refactored)");
 
-const SAVE_KEY = 'eldoraeya_save';
+const SAVE_KEY_PREFIX = 'eldoraeya_save_slot_';
 
 // --- DOM Element Cache ---
 const DOMElements = {
@@ -18,8 +18,16 @@ const DOMElements = {
     narrativeText: document.getElementById('narrative-text'),
     optionsContainer: document.getElementById('options'),
     beginAdventureButton: document.getElementById('begin-adventure'),
+    loadGameButton: document.getElementById('load-game-button'),
+    loadMenu: document.getElementById('load-menu'),
+    saveSlotsList: document.getElementById('save-slots-list'),
+    backToMainMenuButton: document.getElementById('back-to-main-menu-button'),
     genderSelectionDiv: document.getElementById('gender-selection'),
     citySelectionDiv: document.getElementById('city-selection'),
+    // Save Slot Menu (New)
+    saveSlotMenu: document.getElementById('save-slot-menu'),
+    saveSlotsOptionsList: document.getElementById('save-slots-options-list'),
+    cancelSaveButton: document.getElementById('cancel-save-button'),
     // Combat
     combatScreen: document.getElementById('combat'),
     enemyInfo: document.getElementById('enemy-info'),
@@ -39,31 +47,26 @@ const DOMElements = {
 const defaultGameState = {
     run: 1,
     chapter: 1,
-    currentStoryPieceId: "start", // Tracks the current story piece
+    currentStoryPieceId: "start",
     playerGender: null,
     startingCity: null,
-    currentCity: "Emberpeak", // Default starting city for now if not chosen
-    // Player Stats
+    currentCity: "Emberpeak",
     health: 20,
     maxHealth: 20,
     mana: 3,
     maxMana: 3,
     block: 0,
     gold: 10,
-    // Deck & Combat
     deck: ['Fireball', 'Fireball', 'Fireball', 'Fireball', 'Fireball', 'Flame Strike', 'Staff Guard', 'Staff Guard', 'Staff Guard', 'Staff Guard'],
     hand: [],
     discardPile: [],
-    exiledPile: [], // For cards with exile mechanic
-    // Narrative State
-    lastNarrativeText: null, // For saving game
-    lastOptionsTexts: null,  // For saving game
-    completedStoryBeats: [], // Tracks beats completed in current run for narrative context
-    // Combat State
-    currentEnemies: [], // Array of active enemy objects in combat
-    currentPieceType: 'Story', // Story, Combat, Event etc.
-    // Inventory
-    inventory: [], // Will store item objects
+    exiledPile: [],
+    lastNarrativeText: null,
+    lastOptionsTexts: null,
+    completedStoryBeats: [],
+    currentEnemies: [],
+    currentPieceType: 'Story',
+    inventory: [],
     lastSaved: null
 };
 
@@ -77,13 +80,7 @@ function handleError(error, context) {
     }
 }
 
-// --- Grok API Call (updated for secure backend proxy) ---
-// IMPORTANT: The API key is no longer stored in the frontend. This function calls your Vercel backend proxy (e.g., /api/proxy),
-// which securely adds the real API key and talks to the Grok API. No secrets are exposed to the browser.
-//
-// Usage: await callGrokAPI(prompt);
-// Returns: Grok's narrative and options as a string.
-//
+// --- Grok API Call ---
 async function callGrokAPI(prompt) {
     try {
         const response = await fetch('/api/proxy', {
@@ -97,7 +94,7 @@ async function callGrokAPI(prompt) {
                     },
                     { role: "user", content: prompt }
                 ],
-                model: 'grok-3-mini', // Use the Grok 3 Mini model
+                model: 'grok-3-mini',
                 max_tokens: 500,
                 temperature: 0.7
             })
@@ -120,95 +117,128 @@ async function callGrokAPI(prompt) {
 }
 
 // --- Game State Management ---
-function saveGame() {
+
+function getAvailableSaves() {
+    const saves = [];
+    for (let i = 0; i < 10; i++) {
+        const key = SAVE_KEY_PREFIX + i;
+        const savedDataJSON = localStorage.getItem(key);
+        if (savedDataJSON) {
+            try {
+                const savedData = JSON.parse(savedDataJSON);
+                saves.push({
+                    slotId: i,
+                    timestamp: savedData.timestamp,
+                    description: savedData.description
+                });
+            } catch (e) {
+                console.error(`Error parsing save data for slot ${i}:`, e);
+                saves.push({ slotId: i, timestamp: 0, description: "Corrupted Save", corrupted: true });
+            }
+        }
+    }
+    return saves;
+}
+
+function saveGame(slotId) {
+    if (typeof slotId !== 'number' || slotId < 0 || slotId >= 10) {
+        console.error("Invalid slotId provided to saveGame:", slotId);
+        return false;
+    }
     try {
+        const currentSaveKey = SAVE_KEY_PREFIX + slotId;
         gameState.lastNarrativeText = DOMElements.narrativeText.innerText;
         const optionsButtons = DOMElements.optionsContainer.querySelectorAll('button');
         gameState.lastOptionsTexts = optionsButtons.length > 0 ? Array.from(optionsButtons).map(btn => btn.innerText) : null;
-        gameState.lastSaved = Date.now();
-        localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-        console.log("Game state saved:", gameState);
-        if (window.debug && window.debug.log) window.debug.log("Game saved at " + new Date(gameState.lastSaved).toLocaleTimeString());
+
+        const dataToSave = {
+            gameState: { ...gameState, lastSaved: Date.now() },
+            timestamp: Date.now(),
+            description: `Ch: ${gameState.chapter} - ${gameState.currentCity} - ${new Date(Date.now()).toLocaleDateString()}`
+        };
+
+        localStorage.setItem(currentSaveKey, JSON.stringify(dataToSave));
+        console.log(`Game state saved to slot ${slotId}:`, dataToSave);
+        if (window.debug && window.debug.log) window.debug.log(`Game saved to slot ${slotId} at ${new Date(dataToSave.timestamp).toLocaleTimeString()}`);
         return true;
     } catch (error) {
-        handleError(error, 'saveGame');
+        handleError(error, `saveGame slot ${slotId}`);
         return false;
     }
 }
 
-function loadGame() {
+function loadGame(slotId) {
+    if (typeof slotId !== 'number' || slotId < 0 || slotId >= 10) {
+        console.error("Invalid slotId provided to loadGame:", slotId);
+        return false;
+    }
     try {
-        const savedStateJSON = localStorage.getItem(SAVE_KEY);
-        if (savedStateJSON) {
-            const loadedState = JSON.parse(savedStateJSON);
-            // Merge carefully to ensure new default properties are included if save is old
-            gameState = { ...defaultGameState, ...loadedState }; 
-            
-            // Ensure complex objects like inventory and deck are properly restored
-            gameState.inventory = loadedState.inventory || [];
-            gameState.deck = loadedState.deck || [...defaultGameState.deck];
-            gameState.currentEnemies = loadedState.currentEnemies || [];
+        const currentSaveKey = SAVE_KEY_PREFIX + slotId;
+        const savedDataJSON = localStorage.getItem(currentSaveKey);
 
+        if (savedDataJSON) {
+            const loadedData = JSON.parse(savedDataJSON);
+            gameState = { ...defaultGameState, ...loadedData.gameState };
+            gameState.inventory = loadedData.gameState.inventory || [];
+            gameState.deck = loadedData.gameState.deck || [...defaultGameState.deck];
+            gameState.currentEnemies = loadedData.gameState.currentEnemies || [];
 
-            console.log("Game state loaded:", gameState);
-            updateUI(); // Update all static UI elements
+            console.log(`Game state loaded from slot ${slotId}:`, gameState);
+            updateUI();
 
-            if (gameState.currentPieceType === 'Combat' && gameState.currentEnemies.length > 0) {
+            if (gameState.currentPieceType === 'Combat' && gameState.currentEnemies && gameState.currentEnemies.length > 0) {
                 switchToCombatView();
-                // updateEnemyInfoUI must be called after enemies are fully loaded.
-                // startCombat would typically handle this, but on load we directly set state.
-                updateEnemyInfoUI(); // Display current enemy info
+                updateEnemyInfoUI();
                 updateEnemyIntent();
-                displayHandUI(); // Display current hand
+                displayHandUI();
             } else {
                 switchToNarrativeView();
                 updateNarrativeDisplay(gameState.lastNarrativeText || "The tale continues...", gameState.lastOptionsTexts || []);
             }
-            if (window.debug && window.debug.log) window.debug.log("Game loaded. Last saved: " + new Date(gameState.lastSaved).toLocaleTimeString());
+            if (window.debug && window.debug.log) window.debug.log(`Game loaded from slot ${slotId}. Original save time: ${new Date(loadedData.timestamp).toLocaleTimeString()}. Last saved in-game: ${new Date(gameState.lastSaved).toLocaleTimeString()}`);
             return true;
         }
-        if (window.debug && window.debug.log) window.debug.log("No saved game found.");
+        if (window.debug && window.debug.log) window.debug.log(`No saved game found in slot ${slotId}.`);
         return false;
     } catch (error) {
-        handleError(error, 'loadGame');
-        DOMElements.narrativeText.innerText = "The weave of fate has unraveled. A new journey must begin.";
+        handleError(error, `loadGame slot ${slotId}`);
+        DOMElements.narrativeText.innerText = "The weave of fate has unraveled for this save. A new journey must begin, or try another memory.";
         return false;
     }
 }
 
 function resetGame() {
-    console.log("Resetting game...");
-    localStorage.removeItem(SAVE_KEY);
-    gameState = { ...defaultGameState, inventory: [], deck: [...defaultGameState.deck] }; // Ensure fresh arrays
-    // Instead of location.reload(), reset UI and state directly for smoother transition
+    console.log("Resetting game to initial menu state...");
+    gameState = { ...defaultGameState, inventory: [], deck: [...defaultGameState.deck] };
+
     DOMElements.beginAdventureButton.style.display = 'block';
-    DOMElements.beginAdventureButton.classList.remove('hidden'); // Make sure it's not hidden
+    DOMElements.beginAdventureButton.classList.remove('hidden');
+    DOMElements.loadGameButton.style.display = 'block';
+    DOMElements.loadGameButton.classList.remove('hidden');
 
-    DOMElements.genderSelectionDiv.style.display = 'none';
-    DOMElements.genderSelectionDiv.classList.add('hidden');
+    DOMElements.loadMenu.style.display = 'none';
+    DOMElements.loadMenu.classList.add('hidden');
+    DOMElements.saveSlotMenu.style.display = 'none';
+    DOMElements.saveSlotMenu.classList.add('hidden');
 
-    DOMElements.citySelectionDiv.style.display = 'none';
-    DOMElements.citySelectionDiv.classList.add('hidden');
-
-    DOMElements.narrativeText.innerText = ''; // Clear content
-    DOMElements.narrativeText.style.display = 'none';
-    DOMElements.narrativeText.classList.add('hidden');
-
-    DOMElements.optionsContainer.innerHTML = ''; // Clear content
-    DOMElements.optionsContainer.style.display = 'none';
-    DOMElements.optionsContainer.classList.add('hidden');
-    
+    DOMElements.narrativeScreen.style.display = 'block';
+    DOMElements.narrativeScreen.classList.remove('hidden');
     DOMElements.combatScreen.style.display = 'none';
     DOMElements.combatScreen.classList.add('hidden');
 
-    DOMElements.narrativeScreen.style.display = 'block'; 
-    DOMElements.narrativeScreen.classList.remove('hidden'); // Make sure it's not hidden
+    DOMElements.genderSelectionDiv.style.display = 'none';
+    DOMElements.genderSelectionDiv.classList.add('hidden');
+    DOMElements.citySelectionDiv.style.display = 'none';
+    DOMElements.citySelectionDiv.classList.add('hidden');
+    DOMElements.narrativeText.style.display = 'none';
+    DOMElements.optionsContainer.style.display = 'none';
+
     updateUI();
-    if (window.debug && window.debug.log) window.debug.log("Game reset to default state.");
+    if (window.debug && window.debug.log) window.debug.log("Game reset to initial menu. Save slots not affected.");
 }
 
 // --- UI Update Functions ---
-function updateUI() { // Updates static stats, inventory
+function updateUI() {
     try {
         if (DOMElements.health) DOMElements.health.innerText = gameState.health;
         if (DOMElements.maxHealth) DOMElements.maxHealth.innerText = gameState.maxHealth;
@@ -221,49 +251,197 @@ function updateUI() { // Updates static stats, inventory
     }
 }
 
+function displayLoadMenu() {
+    DOMElements.beginAdventureButton.style.display = 'none';
+    DOMElements.loadGameButton.style.display = 'none';
+
+    DOMElements.narrativeScreen.style.display = 'none';
+    DOMElements.narrativeScreen.classList.add('hidden');
+    DOMElements.combatScreen.style.display = 'none';
+    DOMElements.combatScreen.classList.add('hidden');
+    DOMElements.saveSlotMenu.style.display = 'none'; // Hide save menu if open
+    DOMElements.saveSlotMenu.classList.add('hidden');
+
+    DOMElements.loadMenu.classList.remove('hidden');
+    DOMElements.loadMenu.style.display = 'block';
+
+    const saves = getAvailableSaves();
+    DOMElements.saveSlotsList.innerHTML = '';
+
+    if (saves.length === 0) {
+        const noSavesEntry = document.createElement('div');
+        noSavesEntry.className = 'save-slot-entry-empty';
+        noSavesEntry.textContent = 'No save games found.';
+        DOMElements.saveSlotsList.appendChild(noSavesEntry);
+    } else {
+        for (let i = 0; i < 10; i++) {
+            const save = saves.find(s => s.slotId === i);
+            const slotEntry = document.createElement('div');
+            slotEntry.className = 'save-slot-entry';
+
+            const slotInfo = document.createElement('span');
+            if (save) {
+                if (save.corrupted) {
+                    slotInfo.textContent = `Slot ${i + 1}: Corrupted Save Data`;
+                    slotEntry.classList.add('corrupted');
+                } else {
+                    const dateString = new Date(save.timestamp).toLocaleString();
+                    slotInfo.textContent = `Slot ${i + 1}: ${save.description || 'Game Saved'} - ${dateString}`;
+                }
+
+                const loadButton = document.createElement('button');
+                loadButton.textContent = 'Load';
+                loadButton.className = 'load-slot-button';
+                if (save.corrupted) {
+                    loadButton.disabled = true;
+                } else {
+                    loadButton.onclick = () => {
+                        if (loadGame(save.slotId)) {
+                            DOMElements.loadMenu.classList.add('hidden');
+                            DOMElements.loadMenu.style.display = 'none';
+                        } else {
+                            alert(`Failed to load save from slot ${save.slotId + 1}.`);
+                        }
+                    };
+                }
+                slotEntry.appendChild(slotInfo);
+                slotEntry.appendChild(loadButton);
+            } else {
+                slotInfo.textContent = `Slot ${i + 1}: Empty`;
+                slotEntry.appendChild(slotInfo);
+            }
+            DOMElements.saveSlotsList.appendChild(slotEntry);
+        }
+    }
+    if (window.debug && window.debug.log) window.debug.log("Displayed load menu.");
+}
+
+function displaySaveSlotMenu() {
+    DOMElements.narrativeScreen.style.display = 'none';
+    DOMElements.narrativeScreen.classList.add('hidden');
+    DOMElements.combatScreen.style.display = 'none';
+    DOMElements.combatScreen.classList.add('hidden');
+    DOMElements.loadMenu.style.display = 'none';
+    DOMElements.loadMenu.classList.add('hidden');
+
+    DOMElements.saveSlotMenu.classList.remove('hidden');
+    DOMElements.saveSlotMenu.style.display = 'block';
+
+    const saves = getAvailableSaves();
+    DOMElements.saveSlotsOptionsList.innerHTML = '';
+
+    for (let i = 0; i < 10; i++) {
+        const save = saves.find(s => s.slotId === i);
+        const slotEntry = document.createElement('div');
+        slotEntry.className = 'save-slot-option-entry';
+
+        const slotInfo = document.createElement('span');
+        const saveButtonElement = document.createElement('button');
+        saveButtonElement.className = 'save-to-this-slot-button';
+        saveButtonElement.dataset.slotId = i;
+
+        if (save) {
+            if (save.corrupted) {
+                slotInfo.textContent = `Slot ${i + 1}: Corrupted Save Data`;
+                slotEntry.classList.add('corrupted');
+                saveButtonElement.textContent = 'Unavailable';
+                saveButtonElement.disabled = true;
+            } else {
+                const dateString = new Date(save.timestamp).toLocaleString();
+                slotInfo.textContent = `Slot ${i + 1}: ${save.description || 'Game Saved'} - ${dateString}`;
+                saveButtonElement.textContent = 'Overwrite';
+            }
+        } else {
+            slotInfo.textContent = `Slot ${i + 1}: Empty`;
+            saveButtonElement.textContent = 'Save Here';
+        }
+
+        saveButtonElement.onclick = () => {
+            const slotIdToSave = parseInt(saveButtonElement.dataset.slotId);
+            if (save && !save.corrupted) {
+                if (!confirm(`Are you sure you want to overwrite save slot ${slotIdToSave + 1}?`)) {
+                    return;
+                }
+            }
+            if (saveGame(slotIdToSave)) {
+                if (window.debug && window.debug.log) window.debug.log(`Game saved to slot ${slotIdToSave + 1}.`);
+                hideSaveSlotMenuAndRestoreGameView();
+            } else {
+                alert(`Failed to save game to slot ${slotIdToSave + 1}.`);
+            }
+        };
+
+        slotEntry.appendChild(slotInfo);
+        slotEntry.appendChild(saveButtonElement);
+        DOMElements.saveSlotsOptionsList.appendChild(slotEntry);
+    }
+    if (window.debug && window.debug.log) window.debug.log("Displayed save slot menu.");
+}
+
+function hideSaveSlotMenuAndRestoreGameView() {
+    DOMElements.saveSlotMenu.style.display = 'none';
+    DOMElements.saveSlotMenu.classList.add('hidden');
+
+    if (gameState.currentPieceType === 'Combat') {
+        switchToCombatView();
+    } else {
+        switchToNarrativeView();
+    }
+     if (window.debug && window.debug.log) window.debug.log("Save slot menu hidden, game view restored.");
+}
+
+
 function updateNarrativeDisplay(text, options = []) {
     if (!text || text.trim() === "") {
         console.warn('updateNarrativeDisplay: Received empty narrative text. Displaying fallback.');
         text = "The story is currently unfolding... Please wait.";
     }
-
     if (DOMElements.narrativeText) {
         DOMElements.narrativeText.classList.remove('hidden');
         DOMElements.narrativeText.innerText = text;
-        DOMElements.narrativeText.style.display = 'block'; 
+        DOMElements.narrativeText.style.display = 'block';
     } else {
-        console.warn('updateNarrativeDisplay: DOMElements.narrativeText is null. Cannot display narrative.');
+        console.warn('updateNarrativeDisplay: DOMElements.narrativeText is null.');
     }
-
     if (DOMElements.optionsContainer) {
-        DOMElements.optionsContainer.innerHTML = ''; // Clear old options
+        DOMElements.optionsContainer.innerHTML = '';
         if (options && options.length > 0) {
             DOMElements.optionsContainer.classList.remove('hidden');
-            options.forEach((optText, index) => {
+            options.forEach((optText) => {
                 const button = document.createElement('button');
                 button.innerText = optText;
-                // The click handler will be set by the function that calls updateNarrativeDisplay,
-                // as it knows the context (e.g., handleStoryChoice, handleDefeatChoice)
                 DOMElements.optionsContainer.appendChild(button);
             });
-            DOMElements.optionsContainer.style.display = 'flex'; // Or 'block'
+            DOMElements.optionsContainer.style.display = 'flex';
         } else {
             DOMElements.optionsContainer.style.display = 'none';
         }
     } else {
-        console.warn('updateNarrativeDisplay: DOMElements.optionsContainer is null. Cannot display options.');
+        console.warn('updateNarrativeDisplay: DOMElements.optionsContainer is null.');
     }
 }
 
 function switchToNarrativeView() {
     DOMElements.combatScreen.style.display = 'none';
+    DOMElements.combatScreen.classList.add('hidden');
+    DOMElements.loadMenu.style.display = 'none';
+    DOMElements.loadMenu.classList.add('hidden');
+    DOMElements.saveSlotMenu.style.display = 'none';
+    DOMElements.saveSlotMenu.classList.add('hidden');
     DOMElements.narrativeScreen.style.display = 'block';
+    DOMElements.narrativeScreen.classList.remove('hidden');
     gameState.currentPieceType = 'Story';
 }
 
 function switchToCombatView() {
     DOMElements.narrativeScreen.style.display = 'none';
+    DOMElements.narrativeScreen.classList.add('hidden');
+    DOMElements.loadMenu.style.display = 'none';
+    DOMElements.loadMenu.classList.add('hidden');
+    DOMElements.saveSlotMenu.style.display = 'none';
+    DOMElements.saveSlotMenu.classList.add('hidden');
     DOMElements.combatScreen.style.display = 'block';
+    DOMElements.combatScreen.classList.remove('hidden');
     gameState.currentPieceType = 'Combat';
 }
 
@@ -274,14 +452,10 @@ function addToInventory(itemKey, quantity = 1) {
         console.warn(`Item key "${itemKey}" not found in gameData.items.`);
         return false;
     }
-
-    // For stackable items, find existing and increment quantity
-    // For now, let's assume items are unique instances or don't stack beyond simple display
     for (let i = 0; i < quantity; i++) {
-        const newItemInstance = { ...itemData, instanceId: `${itemKey}-${Date.now()}-${Math.random()}` }; // Add unique ID
+        const newItemInstance = { ...itemData, instanceId: `${itemKey}-${Date.now()}-${Math.random()}` };
         gameState.inventory.push(newItemInstance);
     }
-    
     if (window.debug && window.debug.log) window.debug.log(`Added ${quantity}x ${itemData.name} to inventory.`);
     updateInventoryUI();
     return true;
@@ -293,9 +467,7 @@ function useItem(itemInstanceId) {
         console.warn(`Item with instanceId "${itemInstanceId}" not found in inventory.`);
         return false;
     }
-
     const item = gameState.inventory[itemIndex];
-
     let used = false;
     if (item.type === "consumable" && item.effect === "heal") {
         const oldHealth = gameState.health;
@@ -305,11 +477,10 @@ function useItem(itemInstanceId) {
     } else {
         if (window.debug && window.debug.log) window.debug.log(`Item ${item.name} is not a healing consumable or has no defined effect.`);
     }
-
     if (used) {
-        gameState.inventory.splice(itemIndex, 1); // Remove item from inventory
-        updateUI(); // Updates health display and re-renders inventory
-        if (DOMElements.globalTooltip) DOMElements.globalTooltip.style.display = 'none'; // Hide tooltip
+        gameState.inventory.splice(itemIndex, 1);
+        updateUI();
+        if (DOMElements.globalTooltip) DOMElements.globalTooltip.style.display = 'none';
         return true;
     }
     return false;
@@ -318,24 +489,20 @@ function useItem(itemInstanceId) {
 function updateInventoryUI() {
     if (!DOMElements.inventoryList) return;
     DOMElements.inventoryList.innerHTML = '';
-
     if (!Array.isArray(gameState.inventory) || gameState.inventory.length === 0) {
         DOMElements.inventoryList.innerHTML = '<div style="color: #9ca3af; font-style: italic;">Inventory is empty</div>';
         return;
     }
-
-    gameState.inventory.forEach(item => { // No index needed if using item.instanceId
+    gameState.inventory.forEach(item => {
         const itemElement = document.createElement('div');
         itemElement.className = 'inventory-item';
         itemElement.innerHTML = `<span class="item-icon">${item.icon || '📦'}</span><span class="item-name">${item.name}</span>`;
-        
         if (item.description) {
             itemElement.setAttribute('data-description', item.description);
             itemElement.addEventListener('mouseenter', (e) => showTooltip(item.description, e));
             itemElement.addEventListener('mousemove', (e) => positionTooltip(e));
             itemElement.addEventListener('mouseleave', hideTooltip);
         }
-
         if (item.type === 'consumable') {
             const useButton = document.createElement('button');
             useButton.textContent = 'Use';
@@ -350,7 +517,7 @@ function updateInventoryUI() {
     });
 }
 
-// --- Tooltip Functions (from inventory.js, simplified) ---
+// --- Tooltip Functions ---
 function showTooltip(description, event) {
     if (DOMElements.globalTooltip) {
         DOMElements.globalTooltip.textContent = description;
@@ -367,27 +534,21 @@ function hideTooltip() {
 
 function positionTooltip(event) {
     if (DOMElements.globalTooltip && DOMElements.globalTooltip.style.display === 'block') {
-        // Position relative to mouse cursor
         let x = event.clientX + 15;
         let y = event.clientY + 15;
-
-        // Prevent tooltip from going off-screen
         const tooltipRect = DOMElements.globalTooltip.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-
         if (x + tooltipRect.width > viewportWidth) {
             x = event.clientX - tooltipRect.width - 15;
         }
         if (y + tooltipRect.height > viewportHeight) {
             y = event.clientY - tooltipRect.height - 15;
         }
-        
         DOMElements.globalTooltip.style.left = `${x}px`;
         DOMElements.globalTooltip.style.top = `${y}px`;
     }
 }
-
 
 // --- Narrative Flow & Player Choices ---
 async function loadStoryPiece(pieceId) {
@@ -398,18 +559,14 @@ async function loadStoryPiece(pieceId) {
         updateNarrativeDisplay("The Chronomancer seems to have lost his place in the annals of time...", []);
         return;
     }
-
     const piece = chapterData.storyBeats.find(b => b.id === pieceId);
     if (!piece) {
         handleError(new Error(`Story piece "${pieceId}" not found in Chapter ${gameState.chapter}.`), 'loadStoryPiece');
         updateNarrativeDisplay("A page of the story seems to be missing...", []);
         return;
     }
-
     gameState.currentPieceType = piece.next === 'combat' ? 'PreCombat' : 'Story';
     gameState.completedStoryBeats.push(pieceId);
-
-    // Construct prompt for Grok
     let prompt = `Narrate the story piece: "${piece.text.replace("[city]", gameState.currentCity)}". `;
     if (piece.nextOptions) {
         prompt += `The player can choose from these conceptual actions: ${piece.nextOptions.join(", ")}. Generate 4 distinct, numbered in-character choices based on these concepts.`;
@@ -418,43 +575,34 @@ async function loadStoryPiece(pieceId) {
     } else {
         prompt += `This part of the story concludes for now. What happens next is unclear. Generate 4 placeholder options like "Continue cautiously", "Look around", "Consult the Chrono-Compass", "Prepare for anything".`;
     }
-    
     if (window.debug && window.debug.log) window.debug.log(`Loading piece: ${pieceId}. Grok prompt: ${prompt}`);
-
     const fullNarration = await callGrokAPI(prompt);
     const [narrativePart, optionsPart] = parseGrokResponse(fullNarration);
-    
     updateNarrativeDisplay(narrativePart, optionsPart);
-
-    // Setup click handlers for the newly created option buttons
     const optionButtons = DOMElements.optionsContainer.querySelectorAll('button');
     optionButtons.forEach((button, index) => {
-        button.onclick = () => handleStoryChoice(piece, index, optionsPart[index]); // Pass chosen text for context
+        button.onclick = () => handleStoryChoice(piece, index, optionsPart[index]);
     });
 }
 
 function parseGrokResponse(fullNarration) {
-    console.log('Raw Grok response received:', fullNarration); // Requirement 1: Log raw response
+    console.log('Raw Grok response received:', fullNarration);
     let narrativePart = fullNarration;
     let optionsArray = [];
     const optionsMarker = "Options:";
     const optionsIndex = fullNarration.indexOf(optionsMarker);
-
     if (optionsIndex !== -1) {
         narrativePart = fullNarration.substring(0, optionsIndex).trim();
         const optionsStr = fullNarration.substring(optionsIndex + optionsMarker.length).trim();
         optionsArray = optionsStr.split('\n')
-            .map(opt => opt.replace(/^\d+[\.\)]\s*/, '').trim()) // Requirement 2: Flexible numbering
-            .filter(opt => opt.length > 0); // Remove empty lines
-
-        // Requirement 3: Fallback for empty options after marker
+            .map(opt => opt.replace(/^\d+[\.\)]\s*/, '').trim())
+            .filter(opt => opt.length > 0);
         if (optionsArray.length === 0) {
             console.warn("Grok response contained 'Options:' marker, but no valid options were extracted. Using fallback options.");
             optionsArray = ["Continue...", "Investigate further...", "Check surroundings...", "Prepare..."];
         }
     } else {
-        // If Grok doesn't provide options in the expected format, create fallbacks
-        narrativePart = fullNarration; // Use the whole response as narrative
+        narrativePart = fullNarration;
         optionsArray = ["Continue...", "Investigate further...", "Check surroundings...", "Prepare..."];
         if (window.debug && window.debug.log) window.debug.log("Grok response did not contain 'Options:' marker. Using fallback options.");
     }
@@ -464,11 +612,10 @@ function parseGrokResponse(fullNarration) {
 
 function handleStoryChoice(currentPiece, optionIndex, chosenOptionText) {
     if (window.debug && window.debug.log) window.debug.log(`Chose option ${optionIndex}: "${chosenOptionText}" for piece "${currentPiece.id}"`);
-
     if (currentPiece.next === 'combat') {
         startCombat(currentPiece.enemyKey);
     } else if (currentPiece.nextOptions) {
-        const nextPieceId = currentPiece.nextOptions[optionIndex % currentPiece.nextOptions.length]; // Simple mapping
+        const nextPieceId = currentPiece.nextOptions[optionIndex % currentPiece.nextOptions.length];
         if (nextPieceId) {
             loadStoryPiece(nextPieceId);
         } else {
@@ -476,15 +623,13 @@ function handleStoryChoice(currentPiece, optionIndex, chosenOptionText) {
             updateNarrativeDisplay("The path ahead is shrouded in temporal mist...", []);
         }
     } else {
-        // End of a branch, or piece without defined next steps
-        // For now, could loop back to a hub or offer generic explore
         updateNarrativeDisplay("The Chronomancer ponders your choice... and the path forward seems to shift. (End of current segment)", ["Explore further", "Rest a while", "Consult map", "Check inventory"]);
-        // This needs more robust handling based on game design (e.g., chapter end, new event)
     }
 }
 
 function displayCitySelection() {
     DOMElements.genderSelectionDiv.style.display = 'none';
+    DOMElements.genderSelectionDiv.classList.add('hidden');
     DOMElements.citySelectionDiv.innerHTML = '<h2>Select your starting city:</h2>';
     Object.keys(gameData.cities).forEach(cityKey => {
         const city = gameData.cities[cityKey];
@@ -494,11 +639,15 @@ function displayCitySelection() {
             gameState.startingCity = cityKey;
             gameState.currentCity = cityKey;
             DOMElements.citySelectionDiv.classList.add('hidden');
-            loadStoryPiece("start"); // Start the game narrative
+            DOMElements.citySelectionDiv.style.display = 'none';
+            DOMElements.narrativeText.style.display = 'block';
+            DOMElements.optionsContainer.style.display = 'flex';
+            loadStoryPiece("start");
         };
         DOMElements.citySelectionDiv.appendChild(button);
     });
     DOMElements.citySelectionDiv.classList.remove('hidden');
+    DOMElements.citySelectionDiv.style.display = 'block';
 }
 
 // --- Combat System ---
@@ -507,47 +656,33 @@ async function startCombat(enemyKey) {
     if (!enemyDataTemplate) {
         handleError(new Error(`Enemy key "${enemyKey}" not found.`), 'startCombat');
         updateNarrativeDisplay("A menacing presence is felt, but its form is lost to the Chronomancer's memory. The moment passes.", ["Continue cautiously"]);
-        // TODO: Add click handler for the "Continue cautiously" button
         return;
     }
-
-    // Clone enemy data for this combat instance
-    const enemyInstance = JSON.parse(JSON.stringify(enemyDataTemplate)); // Deep clone
-    enemyInstance.health = enemyInstance.maxHealth; // Ensure current health is max health
-    enemyInstance.currentMoveIndex = 0; // Start with the first move
-    enemyInstance.block = 0; // Enemies can also have block
-
-    gameState.currentEnemies = [enemyInstance]; // For now, one enemy
-    
-    // Reset player combat stats
+    const enemyInstance = JSON.parse(JSON.stringify(enemyDataTemplate));
+    enemyInstance.health = enemyInstance.maxHealth;
+    enemyInstance.currentMoveIndex = 0;
+    enemyInstance.block = 0;
+    gameState.currentEnemies = [enemyInstance];
     gameState.block = 0;
-    gameState.mana = gameState.maxMana; // Replenish mana at start of combat
-
-    // Draw initial hand
+    gameState.mana = gameState.maxMana;
     gameState.hand = [];
-    gameState.discardPile = [...gameState.deck]; // Temporarily move all cards to discard
-    gameState.deck = [];                         // Empty the deck
-    drawCards(5); // This will shuffle discard into deck and draw 5
-
+    gameState.discardPile = [...gameState.deck];
+    gameState.deck = [];
+    drawCards(5);
     gameState.currentPieceType = 'Combat';
-
-    // Pre-fight narration using Grok
     const prompt = `The player (${gameState.playerGender || 'mage'}) encounters ${enemyInstance.name} in ${gameState.currentCity}. Describe the scene and the enemy's menacing posture. Player health: ${gameState.health}, Enemy health: ${enemyInstance.health}.`;
     const preFightNarration = await callGrokAPI(prompt);
-    const [narrativePart, ] = parseGrokResponse(preFightNarration); // We don't need options here
-
-    // Display pre-fight narration briefly, then switch to combat UI
-    updateNarrativeDisplay(narrativePart, []); // No options, just text
-    switchToNarrativeView(); // Show narrative screen for pre-fight text
-
+    const [narrativePart, ] = parseGrokResponse(preFightNarration);
+    updateNarrativeDisplay(narrativePart, []);
+    switchToNarrativeView();
     setTimeout(() => {
         switchToCombatView();
         updateEnemyInfoUI();
         updateEnemyIntent();
         displayHandUI();
-        updateUI(); // Update player stats display (mana, block)
+        updateUI();
         if (window.debug && window.debug.log) window.debug.log(`Combat started with ${enemyInstance.name}`);
-    }, 3000); // 3 second delay for pre-fight text, consider a "continue" button
+    }, 3000);
 }
 
 function updateEnemyInfoUI() {
@@ -555,7 +690,6 @@ function updateEnemyInfoUI() {
         const enemy = gameState.currentEnemies[0];
         DOMElements.enemyName.innerText = enemy.name;
         DOMElements.enemyHealth.innerText = `${enemy.health}/${enemy.maxHealth}`;
-         // Add block display for enemy if it has block
         if (enemy.block > 0) {
             DOMElements.enemyHealth.innerText += ` (Block: ${enemy.block})`;
         }
@@ -588,21 +722,17 @@ function drawCards(numToDraw) {
         if (gameState.deck.length === 0) {
             if (gameState.discardPile.length === 0) {
                 if (window.debug && window.debug.log) window.debug.log("Deck and discard pile are empty. No cards to draw.");
-                break; 
+                break;
             }
-            // Shuffle discard pile into deck
             gameState.deck = [...gameState.discardPile];
             gameState.discardPile = [];
-            // Fisher-Yates shuffle
             for (let j = gameState.deck.length - 1; j > 0; j--) {
                 const k = Math.floor(Math.random() * (j + 1));
                 [gameState.deck[j], gameState.deck[k]] = [gameState.deck[k], gameState.deck[j]];
             }
             if (window.debug && window.debug.log) window.debug.log("Reshuffled discard pile into deck.");
         }
-        
         if (gameState.deck.length > 0) {
-           // For simplicity, take from top after shuffle. Random splice is also fine.
            gameState.hand.push(gameState.deck.pop());
         }
     }
@@ -619,8 +749,7 @@ function displayHandUI() {
             return;
         }
         const cardDiv = document.createElement('div');
-        cardDiv.className = 'card'; // Add a class for styling
-        // Basic card display, can be enhanced with CSS
+        cardDiv.className = 'card';
         cardDiv.innerHTML = `
             <div class="card-name">${cardData.name} (${cardData.cost}🌀)</div>
             <div class="card-type">${cardData.type}</div>
@@ -639,15 +768,11 @@ function displayHandUI() {
 function playCard(cardIndexInHand) {
     const cardName = gameState.hand[cardIndexInHand];
     const cardData = gameData.cardDatabase[cardName];
-
     if (!cardData || gameState.mana < cardData.cost) {
         if (window.debug && window.debug.log) window.debug.log(`Cannot play card ${cardName}. Cost: ${cardData?.cost}, Mana: ${gameState.mana}`);
-        return; // Not enough mana or card not found
+        return;
     }
-
     gameState.mana -= cardData.cost;
-
-    // Apply card effects
     if (cardData.type === "Attack") {
         if (gameState.currentEnemies.length > 0) {
             const baseDamage = cardData.effect.damage;
@@ -655,7 +780,6 @@ function playCard(cardIndexInHand) {
                 if (window.debug && window.debug.log) window.debug.log(`Player uses AOE attack ${cardName} for ${baseDamage} base damage.`);
                 gameState.currentEnemies.forEach(targetEnemy => {
                     let damageDealt = baseDamage;
-                    // Apply damage considering enemy block
                     if (targetEnemy.block > 0) {
                         if (damageDealt <= targetEnemy.block) {
                             targetEnemy.block -= damageDealt;
@@ -666,14 +790,12 @@ function playCard(cardIndexInHand) {
                         }
                     }
                     targetEnemy.health -= damageDealt;
-                    targetEnemy.health = Math.max(0, targetEnemy.health); // Prevent negative health
+                    targetEnemy.health = Math.max(0, targetEnemy.health);
                     if (window.debug && window.debug.log) window.debug.log(`  AOE hits ${targetEnemy.name}, deals ${damageDealt} damage. ${targetEnemy.name} health: ${targetEnemy.health}`);
                 });
             } else {
-                // Single target attack
-                const targetEnemy = gameState.currentEnemies[0]; // Default to first enemy
+                const targetEnemy = gameState.currentEnemies[0];
                 let damageDealt = baseDamage;
-                // Apply damage considering enemy block
                 if (targetEnemy.block > 0) {
                     if (damageDealt <= targetEnemy.block) {
                         targetEnemy.block -= damageDealt;
@@ -684,7 +806,7 @@ function playCard(cardIndexInHand) {
                     }
                 }
                 targetEnemy.health -= damageDealt;
-                targetEnemy.health = Math.max(0, targetEnemy.health); // Prevent negative health
+                targetEnemy.health = Math.max(0, targetEnemy.health);
                 if (window.debug && window.debug.log) window.debug.log(`Player attacks ${targetEnemy.name} with ${cardName} for ${baseDamage} (dealt ${damageDealt}). Enemy health: ${targetEnemy.health}`);
             }
         }
@@ -695,9 +817,6 @@ function playCard(cardIndexInHand) {
         gameState.health = Math.min(gameState.maxHealth, gameState.health + cardData.effect.heal);
         if (window.debug && window.debug.log) window.debug.log(`Player uses ${cardName}, heals ${cardData.effect.heal} HP. Total HP: ${gameState.health}`);
     }
-    // Add more effects for Utility, etc.
-
-    // Move card from hand
     gameState.hand.splice(cardIndexInHand, 1);
     if (cardData.effect && cardData.effect.exile) {
         gameState.exiledPile.push(cardName);
@@ -705,26 +824,19 @@ function playCard(cardIndexInHand) {
     } else {
         gameState.discardPile.push(cardName);
     }
-
-    updateUI(); // Update mana, health, block display
-    updateEnemyInfoUI(); // Update enemy health display
-    displayHandUI(); // Re-render hand (card removed, playability of others might change)
-    
-    // Check for combat end immediately after card play
+    updateUI();
+    updateEnemyInfoUI();
+    displayHandUI();
     checkCombatEnd();
 }
 
 async function handleEndTurn() {
     if (gameState.currentPieceType !== 'Combat') return;
     if (window.debug && window.debug.log) window.debug.log("Player ends turn.");
-
-    // Enemy turn
     if (gameState.currentEnemies.length > 0) {
-        const enemy = gameState.currentEnemies[0]; // Assuming one enemy
+        const enemy = gameState.currentEnemies[0];
         const move = enemy.moves[enemy.currentMoveIndex % enemy.moves.length];
-        
         if (window.debug && window.debug.log) window.debug.log(`${enemy.name} uses ${move.name} (Type: ${move.type}, Value: ${move.value})`);
-
         if (move.type === 'attack') {
             let damageTaken = move.value;
             if (gameState.block > 0) {
@@ -737,36 +849,25 @@ async function handleEndTurn() {
                 }
             }
             gameState.health -= damageTaken;
-            gameState.health = Math.max(0, gameState.health); // Prevent negative health
+            gameState.health = Math.max(0, gameState.health);
              if (window.debug && window.debug.log) window.debug.log(`Player takes ${move.value} (reduced to ${damageTaken}) damage. Player health: ${gameState.health}`);
         } else if (move.type === 'defend') {
             enemy.block = (enemy.block || 0) + move.value;
             if (window.debug && window.debug.log) window.debug.log(`${enemy.name} gains ${move.value} Block. Total block: ${enemy.block}`);
         }
-        // Add other move types (utility, buff, debuff) here
-
-        enemy.currentMoveIndex++; // Prepare for next move
-        updateEnemyIntent(); // Show next intent
-        updateEnemyInfoUI(); // Update enemy block display
+        enemy.currentMoveIndex++;
+        updateEnemyIntent();
+        updateEnemyInfoUI();
     }
-    
-    // Player's block resets at the start of their turn, or end of enemy's turn. Let's do it here.
-    // gameState.block = 0; // Decided to reset player block at start of player turn for clarity.
-
-    await checkCombatEnd(); // Check if player or enemy died
-
-    // If combat is still ongoing, start player's next turn
+    await checkCombatEnd();
     if (gameState.currentPieceType === 'Combat') {
-        gameState.mana = gameState.maxMana; // Replenish mana
-        gameState.block = 0; // Player's block resets at start of their turn
-        
-        // Discard hand
+        gameState.mana = gameState.maxMana;
+        gameState.block = 0;
         gameState.discardPile.push(...gameState.hand);
         gameState.hand = [];
-        
-        drawCards(5); // Draw new hand
-        updateUI(); // Update player stats
-        displayHandUI(); // Update hand display
+        drawCards(5);
+        updateUI();
+        displayHandUI();
          if (window.debug && window.debug.log) window.debug.log("Player's new turn started.");
     }
 }
@@ -774,53 +875,39 @@ async function handleEndTurn() {
 async function checkCombatEnd() {
     let combatOver = false;
     let outcomeNarrative = "";
-    let outcomeOptions = [];
-
-    // Check for enemy defeat
     if (gameState.currentEnemies.length > 0 && gameState.currentEnemies[0].health <= 0) {
         const defeatedEnemy = gameState.currentEnemies[0];
         if (window.debug && window.debug.log) window.debug.log(`${defeatedEnemy.name} defeated!`);
-        
-        handleLoot(gameData.enemies[defeatedEnemy.name.toLowerCase().replace(/\s+/g, '')] || defeatedEnemy); // Try to find original enemy data for loot table
-
+        handleLoot(gameData.enemies[defeatedEnemy.name.toLowerCase().replace(/\s+/g, '')] || defeatedEnemy);
         const prompt = `The player has defeated ${defeatedEnemy.name} in ${gameState.currentCity}. Describe the victory and any immediate aftermath. Player health: ${gameState.health}. Gold: ${gameState.gold}.`;
         outcomeNarrative = await callGrokAPI(prompt);
-        // Grok should provide 4 options for post-victory.
         combatOver = true;
-        gameState.currentEnemies = []; // Clear enemies
-    } 
-    // Check for player defeat
+        gameState.currentEnemies = [];
+    }
     else if (gameState.health <= 0) {
         if (window.debug && window.debug.log) window.debug.log(`Player defeated!`);
         const enemy = gameState.currentEnemies.length > 0 ? gameState.currentEnemies[0] : { name: "their foe" };
         const prompt = `The player has been defeated by ${enemy.name} in ${gameState.currentCity}. Describe their fall.`;
-        const defeatText = await callGrokAPI(prompt); // Grok provides defeat text
-        
-        // We define defeat options, not Grok
+        const defeatText = await callGrokAPI(prompt);
         updateNarrativeDisplay(parseGrokResponse(defeatText)[0], ["Restart Battle", "Rewind Path (Load Last Save)", "Abandon Run (Reset Game)"]);
         const optionButtons = DOMElements.optionsContainer.querySelectorAll('button');
         optionButtons.forEach((button, index) => {
-            button.onclick = () => handleDefeatChoice(index, enemy.name.toLowerCase().replace(/\s+/g, '')); // Pass original enemy key if possible
+            const enemyKeyForRestart = gameData.enemies[enemy.name.toLowerCase().replace(/\s+/g, '')] ? enemy.name.toLowerCase().replace(/\s+/g, '') : null;
+            button.onclick = () => handleDefeatChoice(index, enemyKeyForRestart);
         });
-        
         switchToNarrativeView();
-        gameState.currentPieceType = 'Defeat'; // Special state
-        return; // Early exit, special handling for defeat options
+        gameState.currentPieceType = 'Defeat';
+        return;
     }
-
     if (combatOver) {
         switchToNarrativeView();
         const [narrativePart, optionsPart] = parseGrokResponse(outcomeNarrative);
         updateNarrativeDisplay(narrativePart, optionsPart);
-        
         const optionButtons = DOMElements.optionsContainer.querySelectorAll('button');
-        optionButtons.forEach((button, index) => {
-            // This needs a generic "continue story" handler or map to next story beats
+        optionButtons.forEach((button) => {
             button.onclick = () => {
-                // For now, just load the starting piece of the chapter as a placeholder
-                // This should ideally link to a specific "post_combat_victory" piece
                 if (window.debug && window.debug.log) window.debug.log(`Victory option chosen. Placeholder: loading 'start' piece.`);
-                loadStoryPiece(gameState.currentStoryPieceId + "_victory" || "start"); // Placeholder
+                loadStoryPiece(gameState.currentStoryPieceId + "_victory" || "start");
             };
         });
     }
@@ -831,24 +918,22 @@ function handleLoot(enemyDataForLoot) {
         if (window.debug && window.debug.log) window.debug.log("No loot table for this enemy or enemyData undefined.");
         return;
     }
-
     let lootGainedText = "Loot gained: ";
     let itemsGained = 0;
-
     enemyDataForLoot.loot.forEach(lootEntry => {
         if (Math.random() < lootEntry.chance) {
             if (lootEntry.itemKey === "gold") {
-                const goldAmount = lootEntry.value || 1; // Default to 1 gold if value not specified
+                const goldAmount = lootEntry.value || 1;
                 gameState.gold += goldAmount;
                 lootGainedText += `${goldAmount} Gold. `;
                 itemsGained++;
                 if (window.debug && window.debug.log) window.debug.log(`Gained ${goldAmount} gold.`);
             } else if (gameData.items[lootEntry.itemKey]) {
-                addToInventory(lootEntry.itemKey); // addToInventory logs the item name
+                addToInventory(lootEntry.itemKey);
                 lootGainedText += `${gameData.items[lootEntry.itemKey].name}. `;
                 itemsGained++;
-            } else if (gameData.cardDatabase[lootEntry.itemKey]) { // Check if loot is a card
-                 gameState.deck.push(lootEntry.itemKey); // Add card directly to deck
+            } else if (gameData.cardDatabase[lootEntry.itemKey]) {
+                 gameState.deck.push(lootEntry.itemKey);
                  lootGainedText += `Card: ${gameData.cardDatabase[lootEntry.itemKey].name}. `;
                  itemsGained++;
                  if (window.debug && window.debug.log) window.debug.log(`Gained card: ${lootEntry.itemKey}. Added to deck.`);
@@ -858,40 +943,36 @@ function handleLoot(enemyDataForLoot) {
             }
         }
     });
-
     if (itemsGained === 0) {
         lootGainedText = "No loot found this time.";
     }
     if (window.debug && window.debug.log) window.debug.log(lootGainedText);
-    // We can display lootGainedText to the player later in the post-combat narrative.
-    updateUI(); // Update gold display
+    updateUI();
 }
 
-
-function handleDefeatChoice(optionIndex, enemyKey) { // enemyKey of the foe that defeated player
-    if (optionIndex === 0) { // Restart Battle
-        // Reset player health fully for the retry, or to a certain amount? Full for now.
-        gameState.health = gameState.maxHealth; 
-        startCombat(enemyKey); // Restart combat with the same enemy
-    } else if (optionIndex === 1) { // Rewind Path (Load Last Save)
-        if (!loadGame()) { // If load fails (e.g. no save)
-            resetGame(); // Start fresh
+function handleDefeatChoice(optionIndex, enemyKey) {
+    if (optionIndex === 0) {
+        if (!enemyKey) {
+            console.error("Cannot restart battle, enemyKey is missing.");
+            resetGame();
+            return;
+        }
+        gameState.health = gameState.maxHealth;
+        startCombat(enemyKey);
+    } else if (optionIndex === 1) {
+        if (!loadGame(0)) {
+            resetGame();
             DOMElements.narrativeText.innerText = "No past to rewind to... A new journey begins.";
         }
-    } else if (optionIndex === 2) { // Abandon Run (Reset Game)
+    } else if (optionIndex === 2) {
         resetGame();
     }
 }
 
-
-// --- Game Initialization ---
 function initGame() {
-    console.log("Initializing game...");
-    if (!loadGame()) { // If no save game, start fresh
-        console.log("No saved game found or load failed. Starting new game.");
-        resetGame(); // This sets up UI for new game start (begin adventure button)
-    }
-    updateUI(); // Ensure UI is consistent with loaded/new state
+    console.log("Initializing game (multi-save ready)...");
+    resetGame();
+    updateUI();
 }
 
 // --- Event Listeners Setup ---
@@ -899,8 +980,46 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded. Setting up event listeners.");
 
     DOMElements.beginAdventureButton?.addEventListener('click', () => {
-        DOMElements.beginAdventureButton.classList.add('hidden');
+        DOMElements.beginAdventureButton.style.display = 'none';
+        DOMElements.loadGameButton.style.display = 'none';
         DOMElements.genderSelectionDiv.classList.remove('hidden');
+        DOMElements.genderSelectionDiv.style.display = 'flex';
+    });
+
+    DOMElements.loadGameButton?.addEventListener('click', () => {
+        displayLoadMenu();
+    });
+
+    DOMElements.backToMainMenuButton?.addEventListener('click', () => {
+        DOMElements.loadMenu.classList.add('hidden');
+        DOMElements.loadMenu.style.display = 'none';
+        DOMElements.saveSlotMenu.classList.add('hidden'); // Ensure save menu is also hidden
+        DOMElements.saveSlotMenu.style.display = 'none';
+
+        DOMElements.beginAdventureButton.style.display = 'block';
+        DOMElements.loadGameButton.style.display = 'block';
+
+        DOMElements.narrativeScreen.style.display = 'block';
+        DOMElements.narrativeScreen.classList.remove('hidden');
+        DOMElements.combatScreen.style.display = 'none';
+        DOMElements.combatScreen.classList.add('hidden');
+
+        DOMElements.genderSelectionDiv.style.display = 'none';
+        DOMElements.genderSelectionDiv.classList.add('hidden');
+        DOMElements.citySelectionDiv.style.display = 'none';
+        DOMElements.citySelectionDiv.classList.add('hidden');
+        DOMElements.narrativeText.style.display = 'none';
+        DOMElements.optionsContainer.style.display = 'none';
+
+        if (window.debug && window.debug.log) window.debug.log("Returned to main menu.");
+    });
+
+    DOMElements.cancelSaveButton?.addEventListener('click', () => {
+        hideSaveSlotMenuAndRestoreGameView();
+    });
+
+    DOMElements.saveGameButton?.addEventListener('click', () => {
+        displaySaveSlotMenu();
     });
 
     document.getElementById('male')?.addEventListener('click', () => {
@@ -911,38 +1030,24 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.playerGender = 'female';
         displayCitySelection();
     });
-
     DOMElements.startTestCombatButton?.addEventListener('click', () => {
         if (window.debug && window.debug.log) window.debug.log("Start Test Combat button clicked.");
-        // Ensure player is in a state where combat can start (e.g., not already in combat)
         if (gameState.currentPieceType !== 'Combat') {
-             // Example: fight a banditBruiser. Make sure "banditbruiser" key exists in gameData.enemies
-            startCombat("banditBruiser"); // Use the key for the enemy
+            startCombat("banditBruiser");
         } else {
             if (window.debug && window.debug.log) window.debug.log("Already in combat. Test combat not started.");
         }
     });
 
-    DOMElements.saveGameButton?.addEventListener('click', () => {
-        saveGame();
-        // alert("Game Saved!"); // Optional: user feedback
-    });
-
-    DOMElements.addTestItemButton?.addEventListener('click', () => { // Debug panel button
-        // Add a valid item key from gameData.items
+    DOMElements.addTestItemButton?.addEventListener('click', () => {
         if (gameData.items.minorHealingPotion) {
             addToInventory("minorHealingPotion");
         } else {
             console.warn("Test item 'minorHealingPotion' not found in gameData.items for debug button.");
         }
     });
-
     DOMElements.endTurnButton?.addEventListener('click', handleEndTurn);
-
-    // Initialize game (loads save or starts new)
     initGame();
-
-    // Debug: Log initial state
     if (window.debug && window.debug.log) {
         window.debug.log("Initial game state after init: " + JSON.stringify(gameState, null, 2));
     }
@@ -950,12 +1055,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global functions for console access (optional, for debugging)
 window.EldoraeyaDebug = {
-    save: saveGame,
-    load: loadGame,
+    save: (slotId = 0) => saveGame(slotId),
+    load: (slotId = 0) => loadGame(slotId),
     reset: resetGame,
     getState: () => gameState,
     addItem: addToInventory,
     startCombatTest: (enemyKey = "thug") => startCombat(enemyKey),
     callGrok: callGrokAPI,
-    updateNarrative: updateNarrativeDisplay
+    updateNarrative: updateNarrativeDisplay,
+    getSaves: getAvailableSaves
 };
